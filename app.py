@@ -178,34 +178,33 @@ st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Selecione a modalidade:", ["Financiamento", "Consórcio"], horizontal=True)
 st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}"}), use_container_width=True)
 
-# --- PARECER DO HEAD DE CRÉDITO (VERSÃO TURBINADA) ---
+# --- PARECER DO HEAD DE CRÉDITO (VERSÃO DINÂMICA) ---
 st.divider()
-st.subheader("📑 Parecer Técnico: Análise do Head de Crédito e Consórcio")
+st.subheader("📑 Parecer do Head de Crédito e Consórcio")
 
 dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
+anos_fin = prazo_fin / 12
+anos_cons = prazo_cons / 12
+anos_economizados = (prazo_fin - prazo_cons) / 12
 
 if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.success(f"### ✅ Recomendação: Estratégia de Planejamento (Consórcio)")
     st.write(f"""
-    **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior** ao final do ciclo.
+    **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     
     **Por que esta é a melhor decisão?**
-    1. **Ciclo de Dívida Reduzido:** Enquanto o financiamento prenderia seu capital por 30 anos (360 meses), o consórcio liquida sua dívida em no máximo {prazo_cons/12:.1f} anos. Você ganha quase uma década de liberdade financeira.
+    1. **Ciclo de Dívida Reduzido:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos ({prazo_fin} meses)**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos ({prazo_cons} meses)**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira antecipada.
     2. **Poder de Barganha:** Com a carta contemplada, você compra o imóvel como "pagador à vista", permitindo negociar descontos que o financiamento bancário não alcança.
-    3. **Preservação de Liquidez:** O uso do redutor de 50% protege seu fluxo de caixa enquanto você ainda paga aluguel, evitando o sufocamento financeiro comum nos primeiros anos de um financiamento SAC.
-    4. **Eficiência de Taxas:** Você foge dos juros compostos. A taxa de administração é fixa e diluída, ao contrário dos juros bancários que incidem sobre um saldo devedor corrigido mensalmente pela TR.
+    3. **Eficiência de Taxas:** Ao optar por esta via, você elimina os juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente pela TR.
     """)
 else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
     st.write(f"""
-    **Análise de Viabilidade:** Para este perfil e cenário de valorização, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
+    **Análise de Viabilidade:** Para este cenário, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
     
     **Por que esta é a melhor decisão?**
-    1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você se torna dono de 100% da valorização imobiliária desde o primeiro mês. Em cenários de alta valorização, isso supera qualquer economia de taxas.
-    2. **Hospedagem Imediata:** O fim imediato do aluguel compensa o custo de juros mais elevado.
-    3. **Custo de Oportunidade:** Se o tempo de contemplação estimado for muito longo, o reajuste do aluguel (IGP-M) e do imóvel pode tornar a entrada no consórcio mais cara do que o juro travado hoje.
+    1. **Captura de Valorização Imediata:** Ao assumir o imóvel em **{anos_fin:.0f} anos**, você captura 100% da valorização imobiliária desde o primeiro mês, o que superou a economia de taxas do planejamento.
+    2. **Fim do Aluguel:** A economia imediata do aluguel superou o custo efetivo dos juros e da TR no longo prazo.
     
-    *Nota: Recomenda-se amortizações extraordinárias sempre que possível para reduzir o prazo total de 30 anos.*
+    *Nota: Embora o prazo seja de {prazo_fin} meses, recomendamos amortizações extraordinárias para reduzir o custo total.*
     """)
-
-st.caption("⚠️ Este parecer é uma simulação baseada em projeções econômicas e não garante resultados futuros.")
