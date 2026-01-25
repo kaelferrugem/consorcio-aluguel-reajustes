@@ -178,22 +178,34 @@ st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Selecione a modalidade:", ["Financiamento", "Consórcio"], horizontal=True)
 st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}"}), use_container_width=True)
 
-# --- PARECER TÉCNICO ---
+# --- PARECER DO HEAD DE CRÉDITO (VERSÃO TURBINADA) ---
 st.divider()
-st.subheader("📑 Parecer do Head de Crédito e Consórcio")
+st.subheader("📑 Parecer Técnico: Análise do Head de Crédito e Consórcio")
+
+dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
 
 if res_con['Patrimônio'] > res_fin['Patrimônio']:
-    st.success(f"""
-    **Estratégia Vencedora: Consórcio com Parcela Reduzida.** A análise técnica indica que a utilização do redutor de 50% no fundo comum permitiu uma preservação de liquidez superior nos primeiros {mes_contemplacao} meses. 
-    Mesmo com o custo do aluguel e o posterior ajuste do saldo devedor, a ausência de juros compostos bancários e a correção pela TR no financiamento tornaram o consórcio a via mais eficiente para a construção de patrimônio líquido.
+    st.success(f"### ✅ Recomendação: Estratégia de Planejamento (Consórcio)")
+    st.write(f"""
+    **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior** ao final do ciclo.
     
-    * **Vantagem Patrimonial:** R$ {res_con['Patrimônio'] - res_fin['Patrimônio']:,.2f} a mais no final do período.
-    * **Eficiência de Caixa:** O desembolso inicial reduzido protegeu o capital de giro do cliente.
+    **Por que esta é a melhor decisão?**
+    1. **Ciclo de Dívida Reduzido:** Enquanto o financiamento prenderia seu capital por 30 anos (360 meses), o consórcio liquida sua dívida em no máximo {prazo_cons/12:.1f} anos. Você ganha quase uma década de liberdade financeira.
+    2. **Poder de Barganha:** Com a carta contemplada, você compra o imóvel como "pagador à vista", permitindo negociar descontos que o financiamento bancário não alcança.
+    3. **Preservação de Liquidez:** O uso do redutor de 50% protege seu fluxo de caixa enquanto você ainda paga aluguel, evitando o sufocamento financeiro comum nos primeiros anos de um financiamento SAC.
+    4. **Eficiência de Taxas:** Você foge dos juros compostos. A taxa de administração é fixa e diluída, ao contrário dos juros bancários que incidem sobre um saldo devedor corrigido mensalmente pela TR.
     """)
 else:
-    st.info(f"""
-    **Estratégia Vencedora: Financiamento Imobiliário.** Neste cenário específico, a **alavancagem imediata** superou a economia de taxas do consórcio. Ao travar o imóvel no D0, o cliente capturou 100% da valorização imobiliária, o que compensou o custo efetivo do financiamento (Juros + TR). 
+    st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
+    st.write(f"""
+    **Análise de Viabilidade:** Para este perfil e cenário de valorização, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
     
-    * **Vantagem Patrimonial:** R$ {res_fin['Patrimônio'] - res_con['Patrimônio']:,.2f} a mais no final do período.
-    * **Risco Detectado:** O tempo de contemplação do consórcio e o reajuste do aluguel (IGP-M) foram os detratores que inviabilizaram a estratégia de espera.
+    **Por que esta é a melhor decisão?**
+    1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você se torna dono de 100% da valorização imobiliária desde o primeiro mês. Em cenários de alta valorização, isso supera qualquer economia de taxas.
+    2. **Hospedagem Imediata:** O fim imediato do aluguel compensa o custo de juros mais elevado.
+    3. **Custo de Oportunidade:** Se o tempo de contemplação estimado for muito longo, o reajuste do aluguel (IGP-M) e do imóvel pode tornar a entrada no consórcio mais cara do que o juro travado hoje.
+    
+    *Nota: Recomenda-se amortizações extraordinárias sempre que possível para reduzir o prazo total de 30 anos.*
     """)
+
+st.caption("⚠️ Este parecer é uma simulação baseada em projeções econômicas e não garante resultados futuros.")
