@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Simulador Imobiliário Pro", layout="wide")
 
+# CSS para garantir visibilidade e estilo dos cards
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] { font-size: 22px; color: #00ffcc; }
@@ -28,8 +29,8 @@ with st.sidebar:
     tr_mensal = st.slider("TR Mensal (%)", 0.0, 0.5, 0.08) / 100
 
     st.header("🤝 Consórcio")
-    # --- NOVA VARIÁVEL: VALOR DE CONTRATAÇÃO ---
-    v_contratacao_cons = st.number_input("Valor de Contratação do Consórcio (R$)", value=500000, help="Pode ser igual ou maior que o valor do imóvel para cobrir o lance embutido.")
+    # VARIÁVEL: VALOR DE CONTRATAÇÃO (Pode ser diferente do valor do imóvel)
+    v_contratacao_cons = st.number_input("Valor de Contratação (R$)", value=500000)
     
     taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 25.0, 15.0) / 100
     prazo_cons = st.number_input("Prazo Consórcio", value=200)
@@ -62,10 +63,14 @@ def rodar_simulacao():
         imovel_v *= (1 + v_mensal)
         s_devedor = max(0, s_devedor - amort_base)
         custo_acum_fin += parcela
-        data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v - s_devedor, "Custo Acumulado": custo_acum_fin})
+        data.append({
+            "Mês": m, "Tipo": "Financiamento", 
+            "Parcela": parcela, "Desembolso": parcela,
+            "Patrimônio": imovel_v - s_devedor, "Custo Acumulado": custo_acum_fin
+        })
 
     # 2. CONSÓRCIO
-    credito_nom = v_contratacao_cons # Agora usa a nova variável de contratação
+    credito_nom = v_contratacao_cons
     p_cons = (credito_nom * (1 + taxa_adm)) / prazo_cons
     reserva = entrada_fin - lance_proprio
     aluguel_c = aluguel_ini
@@ -89,7 +94,7 @@ def rodar_simulacao():
             liquido_disponivel = credito_nom - v_embutido
             poder_compra = liquido_disponivel + lance_proprio
             
-            # Ajuste da reserva para completar o imóvel de mercado
+            # Ajuste da reserva se o poder de compra for menor que o valor de mercado do imóvel
             necessidade_complemento = max(0, imovel_mercado_atual - poder_compra)
             reserva = max(0, reserva - necessidade_complemento)
             
@@ -115,27 +120,45 @@ def rodar_simulacao():
 
 df = rodar_simulacao()
 
-# --- INTERFACE DE RESULTADOS ---
+# --- RESUMO DE RESULTADOS (Layout Anterior Restaurado) ---
 res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==prazo_fin)].iloc[0]
 res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==prazo_fin)].iloc[0]
 
-st.markdown("### 🎯 Resultado Final Comparado")
-c1, c2, c3, c4 = st.columns(4)
-with c1: st.metric("Patrimônio Financiamento", f"R$ {res_fin['Patrimônio']:,.2f}")
-with c2: st.metric("Custo Financiamento", f"R$ {res_fin['Custo Acumulado']:,.2f}")
-with c3: st.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
-with c4: st.metric("Custo Consórcio", f"R$ {res_con['Custo Acumulado']:,.2f}")
+st.markdown("### 🎯 Comparativo Final Detalhado")
 
+# Linha 1: Patrimônio Construído
+st.markdown("#### 💎 Patrimônio Líquido Final (Valor do Imóvel - Dívida + Investimentos)")
+col1, col2 = st.columns(2)
+with col1:
+    st.metric("Patrimônio com Financiamento", f"R$ {res_fin['Patrimônio']:,.2f}")
+with col2:
+    st.metric("Patrimônio com Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
+
+# Linha 2: Custo Total
+st.markdown("#### 💸 Custo Total da Jornada (Total pago ao Banco/Administradora + Aluguéis)")
+col3, col4 = st.columns(2)
+with col3:
+    st.metric("Custo Total Financiamento", f"R$ {res_fin['Custo Acumulado']:,.2f}")
+with col4:
+    st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
+
+# --- GRÁFICOS ---
 st.divider()
 st.subheader("📊 Evolução Patrimonial")
 fig_pat = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
     fig_pat.add_trace(go.Scatter(x=sub['Mês'], y=sub['Patrimônio'], name=t))
-fig_pat.update_layout(template="plotly_dark", height=400)
+fig_pat.update_layout(template="plotly_dark")
 st.plotly_chart(fig_pat, use_container_width=True)
 
+# --- PLANILHA DETALHADA ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Selecione a modalidade:", ["Financiamento", "Consórcio"], horizontal=True)
-st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}"}), use_container_width=True)
+st.dataframe(df[df['Tipo']==tipo_view].style.format({
+    "Parcela": "{:.2f}", 
+    "Desembolso": "{:.2f}", 
+    "Patrimônio": "{:.2f}", 
+    "Custo Acumulado": "{:.2f}"
+}), use_container_width=True)
