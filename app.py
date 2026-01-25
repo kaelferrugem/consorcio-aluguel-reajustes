@@ -3,9 +3,8 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Simulador Imobiliário Pro", layout="wide")
+st.set_page_config(page_title="Simulador Imobiliário Pro - Parcela Reduzida", layout="wide")
 
-# CSS para garantir visibilidade e estilo dos cards
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] { font-size: 22px; color: #00ffcc; }
@@ -29,13 +28,18 @@ with st.sidebar:
     tr_mensal = st.slider("TR Mensal (%)", 0.0, 0.5, 0.08) / 100
 
     st.header("🤝 Consórcio")
-    # VARIÁVEL: VALOR DE CONTRATAÇÃO (Pode ser diferente do valor do imóvel)
     v_contratacao_cons = st.number_input("Valor de Contratação (R$)", value=500000)
     
-    taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 25.0, 15.0) / 100
-    prazo_cons = st.number_input("Prazo Consórcio", value=200)
+    # NOVAS VARIÁVEIS BASEADAS NO ARQUIVO ENVIADO
+    taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 30.0, 20.0) / 100 # Padrão 20% conforme imagem
+    fundo_reserva = st.slider("Fundo de Reserva (%)", 0.0, 5.0, 2.0) / 100 # Padrão 2% conforme imagem
+    prazo_cons = st.number_input("Prazo Consórcio", value=240) # Padrão 240 conforme imagem
+    
     lance_proprio = st.number_input("Lance Próprio (R$)", value=100000)
-    pct_lance_embutido = st.slider("% Lance Embutido (do crédito)", 0, 30, 20) / 100
+    pct_lance_embutido = st.slider("% Lance Embutido (do crédito)", 0, 30, 25) / 100 # Padrão 25% conforme imagem
+    
+    # VARIÁVEL DE PARCELA REDUZIDA
+    pct_redutor_parcela = st.slider("% Redutor de Parcela (Até contemplar)", 0, 50, 50) / 100
     
     mes_contemplacao = st.slider("Mês Contemplação", 1, prazo_cons, 12)
     aluguel_ini = st.number_input("Aluguel Inicial (R$)", value=2500)
@@ -47,6 +51,7 @@ def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
     s_mensal = (1 + selic_anual)**(1/12) - 1
+    taxa_total_cons = taxa_adm + fundo_reserva
     
     data = []
     
@@ -63,56 +68,64 @@ def rodar_simulacao():
         imovel_v *= (1 + v_mensal)
         s_devedor = max(0, s_devedor - amort_base)
         custo_acum_fin += parcela
-        data.append({
-            "Mês": m, "Tipo": "Financiamento", 
-            "Parcela": parcela, "Desembolso": parcela,
-            "Patrimônio": imovel_v - s_devedor, "Custo Acumulado": custo_acum_fin
-        })
+        data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v - s_devedor, "Custo Acumulado": custo_acum_fin})
 
     # 2. CONSÓRCIO
     credito_nom = v_contratacao_cons
-    p_cons = (credito_nom * (1 + taxa_adm)) / prazo_cons
+    # Parcela cheia base
+    p_cheia_base = (credito_nom * (1 + taxa_total_cons)) / prazo_cons
+    
     reserva = entrada_fin - lance_proprio
     aluguel_c = aluguel_ini
     imovel_c = 0
-    s_devedor_c = (credito_nom * (1 + taxa_adm)) - (lance_proprio * (1 + taxa_adm/prazo_cons))
+    s_devedor_c = (credito_nom * (1 + taxa_total_cons)) - (lance_proprio * (1 + taxa_total_cons/prazo_cons))
     
     custo_acum_cons = (entrada_fin - reserva)
+    divida_acumulada_redutor = 0
     
     for m in range(1, prazo_fin + 1):
         if m % 12 == 1 and m > 1:
-            p_cons *= (1 + incc_anual)
+            p_cheia_base *= (1 + incc_anual)
             aluguel_c *= (1 + igpm_anual)
-            if m <= mes_contemplacao: 
-                credito_nom *= (1 + incc_anual)
+            if m <= mes_contemplacao: credito_nom *= (1 + incc_anual)
         
         imovel_mercado_atual = v_imovel * (1 + v_mensal)**m
         c_aluguel = aluguel_c if m < mes_contemplacao else 0
         
-        if m == mes_contemplacao:
+        # Lógica de Parcela Reduzida
+        if m < mes_contemplacao:
+            p_atual = p_cheia_base * (1 - pct_redutor_parcela)
+            divida_acumulada_redutor += (p_cheia_base - p_atual)
+        elif m == mes_contemplacao:
+            # No mês da contemplação, ajustamos o saldo devedor com o que não foi pago
+            s_devedor_c += divida_acumulada_redutor
             v_embutido = credito_nom * pct_lance_embutido
             liquido_disponivel = credito_nom - v_embutido
             poder_compra = liquido_disponivel + lance_proprio
             
-            # Ajuste da reserva se o poder de compra for menor que o valor de mercado do imóvel
+            # Ajuste da reserva para completar a compra
             necessidade_complemento = max(0, imovel_mercado_atual - poder_compra)
             reserva = max(0, reserva - necessidade_complemento)
             
             imovel_c = imovel_mercado_atual
             s_devedor_c -= v_embutido
+            p_atual = p_cheia_base # Volta para a parcela cheia
+        else:
+            # Pós contemplação: parcela cheia recalculada pelo saldo devedor restante
+            meses_restantes = max(1, prazo_cons - m + 1)
+            p_atual = s_devedor_c / meses_restantes if m <= prazo_cons else 0
         
         if imovel_c > 0: imovel_c *= (1 + v_mensal)
         reserva *= (1 + s_mensal)
         
-        p_atual = p_cons if m <= prazo_cons else 0
-        s_devedor_c = max(0, s_devedor_c - (p_atual / (1 + taxa_adm)) if p_atual > 0 else 0)
+        if m <= prazo_cons:
+            s_devedor_c = max(0, s_devedor_c - (p_atual / (1 + taxa_total_cons)))
         
         desembolso_mes = p_atual + c_aluguel
         custo_acum_cons += desembolso_mes
         
         data.append({
-            "Mês": m, "Tipo": "Consórcio", 
-            "Parcela": p_atual, "Desembolso": desembolso_mes,
+            "Mês": m, "Tipo": "Consórcio", "Parcela": p_atual, "Desembolso": desembolso_mes,
             "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_acum_cons
         })
         
@@ -120,29 +133,22 @@ def rodar_simulacao():
 
 df = rodar_simulacao()
 
-# --- RESUMO DE RESULTADOS (Layout Anterior Restaurado) ---
+# --- EXIBIÇÃO ---
 res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==prazo_fin)].iloc[0]
 res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==prazo_fin)].iloc[0]
 
 st.markdown("### 🎯 Comparativo Final Detalhado")
 
-# Linha 1: Patrimônio Construído
-st.markdown("#### 💎 Patrimônio Líquido Final (Valor do Imóvel - Dívida + Investimentos)")
+st.markdown("#### 💎 Patrimônio Líquido Final")
 col1, col2 = st.columns(2)
-with col1:
-    st.metric("Patrimônio com Financiamento", f"R$ {res_fin['Patrimônio']:,.2f}")
-with col2:
-    st.metric("Patrimônio com Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
+with col1: st.metric("Patrimônio com Financiamento", f"R$ {res_fin['Patrimônio']:,.2f}")
+with col2: st.metric("Patrimônio com Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
 
-# Linha 2: Custo Total
-st.markdown("#### 💸 Custo Total da Jornada (Total pago ao Banco/Administradora + Aluguéis)")
+st.markdown("#### 💸 Custo Total da Jornada")
 col3, col4 = st.columns(2)
-with col3:
-    st.metric("Custo Total Financiamento", f"R$ {res_fin['Custo Acumulado']:,.2f}")
-with col4:
-    st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
+with col3: st.metric("Custo Total Financiamento", f"R$ {res_fin['Custo Acumulado']:,.2f}")
+with col4: st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
 
-# --- GRÁFICOS ---
 st.divider()
 st.subheader("📊 Evolução Patrimonial")
 fig_pat = go.Figure()
@@ -152,13 +158,7 @@ for t in ["Financiamento", "Consórcio"]:
 fig_pat.update_layout(template="plotly_dark")
 st.plotly_chart(fig_pat, use_container_width=True)
 
-# --- PLANILHA DETALHADA ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Selecione a modalidade:", ["Financiamento", "Consórcio"], horizontal=True)
-st.dataframe(df[df['Tipo']==tipo_view].style.format({
-    "Parcela": "{:.2f}", 
-    "Desembolso": "{:.2f}", 
-    "Patrimônio": "{:.2f}", 
-    "Custo Acumulado": "{:.2f}"
-}), use_container_width=True)
+st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}"}), use_container_width=True)
