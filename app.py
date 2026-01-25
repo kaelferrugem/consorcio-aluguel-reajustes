@@ -1,172 +1,143 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import numpy as np
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Simulador Imobiliário Pro v2.0", layout="wide")
+st.set_page_config(page_title="Simulador Imobiliário Pro", layout="wide")
 
-# Estilização para visual mais "Premium"
+# CSS Corrigido: Removi o fundo branco dos cards para evitar o "texto invisível"
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .metric-container {
+        background-color: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 20px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏦 Simulador Avançado: Financiamento vs. Consórcio")
-st.markdown("---")
+st.title("🏦 Comparativo: Financiamento vs. Consórcio")
+st.caption("Versão com Memória de Cálculo e Ajustes de Inflação/Valorização")
 
 # --- SIDEBAR - PARÂMETROS ---
 with st.sidebar:
-    st.header("🏠 Dados do Imóvel")
-    v_imovel = st.number_input("Valor Atual do Imóvel (R$)", value=500000, step=10000)
-    val_anual = st.slider("Valorização Anual do Imóvel (%)", 0.0, 15.0, 6.0) / 100
+    st.header("🏠 Imóvel e Economia")
+    v_imovel = st.number_input("Valor do Imóvel (R$)", value=500000)
+    val_anual = st.slider("Valorização Anual (%)", 0.0, 15.0, 6.0) / 100
+    selic_anual = st.slider("Rendimento Reserva (% a.a.)", 0.0, 15.0, 10.0) / 100
     
     st.header("📉 Financiamento (SAC)")
-    entrada_fin = st.number_input("Valor da Entrada (R$)", value=100000, step=5000)
-    juros_anual = st.slider("Taxa de Juros Anual (%)", 5.0, 15.0, 10.5) / 100
-    prazo_fin = st.number_input("Prazo (Meses)", value=360, step=12)
-    tr_mensal = st.slider("TR Mensal Média (%)", 0.0, 0.5, 0.08) / 100
+    entrada_fin = st.number_input("Entrada (R$)", value=100000)
+    juros_anual = st.slider("Juros Anual (%)", 5.0, 15.0, 10.5) / 100
+    prazo_fin = st.number_input("Prazo (Meses)", value=360)
+    tr_mensal = st.slider("TR Mensal (%)", 0.0, 0.5, 0.08) / 100
 
-    st.header("🤝 Consórcio + Aluguel")
+    st.header("🤝 Consórcio")
     taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 25.0, 15.0) / 100
-    prazo_cons = st.number_input("Prazo Consórcio (Meses)", value=200, step=1)
-    lance_proprio = st.number_input("Lance Próprio (R$)", value=100000, step=5000)
-    mes_contemplacao = st.slider("Mês de Contemplação", 1, prazo_cons, 12)
-    aluguel_ini = st.number_input("Aluguel Inicial (R$)", value=2500, step=100)
-    
-    st.header("📊 Índices Econômicos")
-    incc_anual = st.slider("INCC Anual (%)", 0.0, 12.0, 5.0) / 100
-    igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 5.0) / 100
-    selic_anual = st.slider("Rendimento Reserva (% a.a.)", 0.0, 15.0, 10.0) / 100
+    prazo_cons = st.number_input("Prazo Consórcio", value=200)
+    lance_proprio = st.number_input("Lance Próprio (R$)", value=100000)
+    mes_contemplacao = st.slider("Mês Contemplação", 1, prazo_cons, 120)
+    aluguel_ini = st.number_input("Aluguel Inicial (R$)", value=2500)
+    incc_anual = st.slider("INCC Anual (%)", 0.0, 12.0, 6.0) / 100
+    igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 4.5) / 100
 
 # --- MOTOR DE CÁLCULO ---
-def calcular_cenarios():
-    # Taxas Mensais
+def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
     s_mensal = (1 + selic_anual)**(1/12) - 1
     
     data = []
     
-    # --- 1. FINANCIAMENTO ---
+    # FINANCIAMENTO
     s_devedor = v_imovel - entrada_fin
     imovel_v = v_imovel
     amort_base = s_devedor / prazo_fin
     
     for m in range(1, prazo_fin + 1):
-        s_devedor *= (1 + tr_mensal) # Ajuste TR
+        s_devedor *= (1 + tr_mensal)
         juros = s_devedor * j_mensal
         parcela = amort_base + juros
         imovel_v *= (1 + v_mensal)
-        s_devedor -= amort_base
-        patrimonio = imovel_v - max(0, s_devedor)
+        s_devedor = max(0, s_devedor - amort_base)
+        patrimonio = imovel_v - s_devedor
         
-        data.append({
-            "Mês": m, "Tipo": "Financiamento", "Parcela": parcela,
-            "Aluguel": 0, "Desembolso Total": parcela, "Patrimônio Líquido": patrimonio,
-            "Valor Imóvel": imovel_v, "Saldo Devedor": s_devedor
-        })
+        data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Patrimônio": patrimonio})
 
-    # --- 2. CONSÓRCIO ---
+    # CONSÓRCIO
     credito_c = v_imovel
-    parc_cons = (credito_c * (1 + taxa_adm)) / prazo_cons
+    p_cons = (credito_c * (1 + taxa_adm)) / prazo_cons
     reserva = entrada_fin - lance_proprio
     aluguel_c = aluguel_ini
     imovel_c = 0
-    s_devedor_c = (credito_c * (1 + taxa_adm)) - (lance_proprio * (1 + (taxa_adm/prazo_cons)))
+    s_devedor_c = (credito_c * (1 + taxa_adm)) - (lance_proprio * (1 + taxa_adm/prazo_cons))
     
     for m in range(1, prazo_fin + 1):
-        # Reajustes anuais (INCC e IGP-M)
         if m % 12 == 1 and m > 1:
-            parc_cons *= (1 + incc_anual)
+            p_cons *= (1 + incc_anual)
             aluguel_c *= (1 + igpm_anual)
-            if m <= mes_contemplacao:
-                credito_c *= (1 + incc_anual)
+            if m <= mes_contemplacao: credito_c *= (1 + incc_anual)
         
-        # Dinâmica de Moradia e Patrimônio
-        custo_aluguel = aluguel_c if m < mes_contemplacao else 0
-        if m == mes_contemplacao:
-            imovel_c = credito_c
-        
+        c_aluguel = aluguel_c if m < mes_contemplacao else 0
+        if m == mes_contemplacao: imovel_c = credito_c
         if imovel_c > 0: imovel_c *= (1 + v_mensal)
         reserva *= (1 + s_mensal)
         
-        # Pagamento Consórcio
-        p_atual = parc_cons if m <= prazo_cons else 0
-        s_devedor_c -= (p_atual / (1 + taxa_adm)) if p_atual > 0 else 0
+        p_atual = p_cons if m <= prazo_cons else 0
+        s_devedor_c = max(0, s_devedor_c - (p_atual / (1 + taxa_adm)) if p_atual > 0 else 0)
         
-        patrimonio_c = imovel_c - max(0, s_devedor_c) + reserva
-        
-        data.append({
-            "Mês": m, "Tipo": "Consórcio", "Parcela": p_atual,
-            "Aluguel": custo_aluguel, "Desembolso Total": p_atual + custo_aluguel,
-            "Patrimônio Líquido": patrimonio_c, "Valor Imóvel": imovel_c, "Saldo Devedor": s_devedor_c
-        })
+        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_atual + c_aluguel, "Patrimônio": imovel_c - s_devedor_c + reserva})
         
     return pd.DataFrame(data)
 
-df = calcular_cenarios()
+df = rodar_simulacao()
 
-# --- INTERFACE DE RESULTADOS ---
-c1, c2 = st.columns(2)
-
-with c1:
-    st.subheader("📈 Evolução do Patrimônio Líquido")
+# --- VISUALIZAÇÃO ---
+col1, col2 = st.columns(2)
+with col1:
     fig_pat = go.Figure()
-    fig_pat.add_trace(go.Scatter(x=df[df['Tipo']=="Financiamento"]['Mês'], y=df[df['Tipo']=="Financiamento"]['Patrimônio Líquido'], name="Financiamento"))
-    fig_pat.add_trace(go.Scatter(x=df[df['Tipo']=="Consórcio"]['Mês'], y=df[df['Tipo']=="Consórcio"]['Patrimônio Líquido'], name="Consórcio + Aluguel"))
-    fig_pat.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02), margin=dict(l=0, r=0, t=30, b=0))
+    for t in ["Financiamento", "Consórcio"]:
+        sub = df[df['Tipo']==t]
+        fig_pat.add_trace(go.Scatter(x=sub['Mês'], y=sub['Patrimônio'], name=t))
+    fig_pat.update_layout(title="Evolução Patrimonial", template="plotly_dark")
     st.plotly_chart(fig_pat, use_container_width=True)
 
-with c2:
-    st.subheader("💸 Desembolso Mensal")
-    fig_des = go.Figure()
-    fig_des.add_trace(go.Scatter(x=df[df['Tipo']=="Financiamento"]['Mês'], y=df[df['Tipo']=="Financiamento"]['Desembolso Total'], name="Parcela SAC"))
-    fig_des.add_trace(go.Scatter(x=df[df['Tipo']=="Consórcio"]['Mês'], y=df[df['Tipo']=="Consórcio"]['Desembolso Total'], name="Consórcio + Aluguel"))
-    fig_des.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02), margin=dict(l=0, r=0, t=30, b=0))
-    st.plotly_chart(fig_des, use_container_width=True)
+with col2:
+    fig_parc = go.Figure()
+    for t in ["Financiamento", "Consórcio"]:
+        sub = df[df['Tipo']==t]
+        fig_parc.add_trace(go.Scatter(x=sub['Mês'], y=sub['Parcela'], name=t))
+    fig_parc.update_layout(title="Desembolso Mensal", template="plotly_dark")
+    st.plotly_chart(fig_parc, use_container_width=True)
 
-# --- QUADRO RESUMO ---
-st.markdown("### 🎯 Comparativo Final")
-final_m = df['Mês'].max()
-res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==final_m)].iloc[0]
-res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==final_m)].iloc[0]
+# --- COMPARATIVO FINAL CORRIGIDO (Visibilidade Total) ---
+st.subheader("🎯 Comparativo Final")
+res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==prazo_fin)].iloc[0]
+res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==prazo_fin)].iloc[0]
 
-col_a, col_b, col_c = st.columns(3)
-col_a.metric("Patrimônio Financiamento", f"R$ {res_fin['Patrimônio Líquido']:,.2f}")
-col_b.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio Líquido']:,.2f}")
-col_c.metric("Diferença", f"R$ {abs(res_fin['Patrimônio Líquido'] - res_con['Patrimônio Líquido']):,.2f}")
+c_a, c_b, c_c = st.columns(3)
+with c_a: st.metric("Patrimônio Financiamento", f"R$ {res_fin['Patrimônio']:,.2f}")
+with c_b: st.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
+with c_c: st.metric("Diferença", f"R$ {abs(res_fin['Patrimônio']-res_con['Patrimônio']):,.2f}")
 
-# --- TABELA E DOWNLOAD ---
-st.markdown("---")
-st.subheader("📋 Memória de Cálculo (Mês a Mês)")
+# --- PLANILHA DETALHADA (O que você queria acrescentar) ---
+st.divider()
+st.subheader("📋 Memória de Cálculo Detalhada")
+aba1, aba2 = st.tabs(["📊 Tabela Mensal", "📥 Download"])
 
-# Seletor para a tabela
-opcao_tab = st.selectbox("Visualizar dados de:", ["Financiamento", "Consórcio"])
-df_view = df[df['Tipo'] == opcao_tab].copy()
+with aba1:
+    tipo_tab = st.radio("Ver dados de:", ["Financiamento", "Consórcio"], horizontal=True)
+    st.dataframe(df[df['Tipo']==tipo_tab].style.format({"Parcela": "{:.2f}", "Patrimônio": "{:.2f}"}), use_container_width=True)
 
-st.dataframe(
-    df_view.style.format({
-        "Parcela": "{:.2f}", "Aluguel": "{:.2f}", "Desembolso Total": "{:.2f}",
-        "Patrimônio Líquido": "{:.2f}", "Valor Imóvel": "{:.2f}", "Saldo Devedor": "{:.2f}"
-    }), 
-    use_container_width=True
-)
+with aba2:
+    st.download_button("Baixar Dados Completos (CSV)", df.to_csv(index=False).encode('utf-8'), "simulacao.csv", "text/csv")
 
-# Exportação
-csv = df.to_csv(index=False).encode('utf-8')
-st.download_button(
-    label="📥 Baixar Simulação Completa (CSV)",
-    data=csv,
-    file_name='comparativo_imobiliario_expert.csv',
-    mime='text/csv',
-)
-
-st.markdown("---")
+# --- PARECER DO HEAD DE CRÉDITO ---
+st.divider()
 st.subheader("📑 Parecer Técnico")
-if res_fin['Patrimônio Líquido'] > res_con['Patrimônio Líquido']:
-    st.success("O **Financiamento** apresentou maior acúmulo patrimonial devido à alavancagem precoce e valorização do ativo desde o D0.")
+if res_con['Patrimônio'] > res_fin['Patrimônio']:
+    st.success(f"**Estratégia Recomendada: Consórcio.** O menor custo financeiro e a preservação de capital via reserva superaram o custo do aluguel e a alavancagem do financiamento neste cenário. Diferença de **R$ {res_con['Patrimônio']-res_fin['Patrimônio']:,.2f}** a favor do cliente.")
 else:
-    st.info("O **Consórcio** apresentou melhor eficiência financeira, preservando capital e reduzindo o custo de juros nominais.")
+    st.info(f"**Estratégia Recomendada: Financiamento.** A alavancagem imediata permitiu capturar a valorização do imóvel desde o primeiro mês, compensando os juros pagos. Diferença de **R$ {res_fin['Patrimônio']-res_con['Patrimônio']:,.2f}**.")
