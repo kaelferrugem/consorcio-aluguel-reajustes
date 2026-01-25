@@ -15,6 +15,22 @@ st.markdown("""
 
 st.title("🏦 Dashboard de Decisão: Financiamento vs. Consórcio")
 
+# No topo do seu app.py, logo após o título:
+
+st.markdown("""
+    <div style="background-color: rgba(0, 255, 204, 0.05); padding: 20px; border-radius: 10px; border-left: 5px solid #00ffcc;">
+        <h3 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h3>
+        <p style="font-size: 1.1em;">
+            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b>. 
+        </p>
+        <p>
+            Este simulador compara o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>, considerando valorização imobiliária, inflação e o impacto real do aluguel no seu tempo de espera.
+        </p>
+        <small><i>"Matemática não tem opinião. Ela tem resultados."</i></small>
+    </div>
+    <br>
+""", unsafe_allow_html=True)
+
 # --- SIDEBAR ---
 with st.sidebar:
     st.header("🏠 Parâmetros Gerais")
