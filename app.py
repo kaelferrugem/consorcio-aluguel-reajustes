@@ -104,7 +104,7 @@ with st.sidebar:
     prazo_fin = st.number_input("Prazo Financiamento (Meses)", value=420)
     tr_mensal = st.slider("TR Mensal (%)", 0.0, 0.5, 0.12) / 100
 
-    st.header("🤝 Consórcio (XP/Embracon)")
+    st.header("🤝 Consórcio")
     v_contratacao_cons = st.number_input("Valor de Contratação (R$)", value=500000)
     taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 30.0, 20.0) / 100
     fundo_reserva = st.slider("Fundo de Reserva (%)", 0.0, 5.0, 2.0) / 100
