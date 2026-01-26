@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit.components.v1 as components
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# CSS para métricas, visual e ocultar elementos na impressão
+# CSS para métricas, visual e ocultar elementos indesejados na impressão
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] { font-size: 24px; color: #00ffcc; }
@@ -17,9 +18,14 @@ st.markdown("""
         border-left: 6px solid #00ffcc;
         margin-bottom: 30px;
     }
+    /* Estilos para a Impressão */
     @media print {
-        .stButton, .stDownloadButton, .sidebar, [data-testid="stSidebar"], .stRadio {
+        .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, .stDownloadButton, footer {
             display: none !important;
+        }
+        .main {
+            background-color: white !important;
+            color: black !important;
         }
     }
     </style>
@@ -30,7 +36,7 @@ st.markdown("""
     <div class="main-description">
         <h2 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h2>
         <p style="font-size: 1.15em;">
-            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão deve ser baseada no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
+            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
         </p>
         <p>
             Este simulador avançado, desenvolvido para o padrão de atendimento <b>GB</b>, compara o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>.
@@ -38,7 +44,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR: PARÂMETROS PADRÃO ---
+# --- SIDEBAR: PARÂMETROS PADRÃO (CONFORME SOLICITADO) ---
 with st.sidebar:
     st.header("🏠 Parâmetros Gerais")
     v_imovel = st.number_input("Valor Atual do Imóvel (R$)", value=500000)
@@ -169,13 +175,13 @@ for t in ["Financiamento", "Consórcio"]:
 fig_liq.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_liq, use_container_width=True)
 
-# --- PLANILHA ---
+# --- PLANILHA (MEMÓRIA DE CÁLCULO ACIMA DO PARECER) ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
 st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
 
-# --- PARECER DO HEAD DE CRÉDITO ---
+# --- PARECER DO HEAD DE CRÉDITO (RESTORE COM VANTAGENS) ---
 st.divider()
 st.subheader("📑 Parecer Técnico: Head de Crédito e Consórcio")
 
@@ -189,9 +195,9 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.write(f"""
     **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     
-    **Vantagens Competitivas:**
-    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
-    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal enquanto aguarda a contemplação.
+    **Por que esta é a melhor decisão?**
+    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos ({prazo_fin} meses)**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
+    2. **Segurança de Liquidez:** Como demonstrado no gráfico, você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal enquanto aguarda a contemplação.
     3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista", permitindo descontos que podem anular o custo da taxa de administração.
     4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente.
     """)
@@ -200,27 +206,22 @@ else:
     st.write(f"""
     **Análise de Viabilidade:** Para este perfil e cenário, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
     
-    **Vantagens Competitivas:**
+    **Por que esta é a melhor decisão?**
     1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você captura 100% da valorização imobiliária desde o mês 1.
     2. **Fim do Aluguel:** A economia imediata do aluguel projetado com reajuste de {igpm_anual*100:.1f}% a.a. compensou o custo de juros.
     3. **Hospedagem Imediata:** A urgência em morar no imóvel próprio foi atendida sem depender de sorteios ou lances.
     """)
 
-# --- BOTÃO DE IMPRESSÃO ---
+# --- BOTÃO DE IMPRESSÃO (CORRIGIDO) ---
 st.divider()
 if st.button("🖨️ Gerar Resumo para Impressão"):
-    st.markdown("""
+    # Chamando window.parent.print() através de um componente HTML para garantir execução no browser
+    components.html(
+        """
         <script>
-            window.print();
+            window.parent.print();
         </script>
-    """, unsafe_allow_html=True)
-    st.info("Dica: Ao abrir a janela de impressão, selecione 'Salvar como PDF' para gerar o arquivo do relatório.")
-
-# --- EXPORTAÇÃO CSV ---
-csv = df.to_csv(index=False).encode('utf-8')
-st.download_button(
-    label="📥 Baixar Dados Completos (CSV)",
-    data=csv,
-    file_name='simulacao_gb_completa.csv',
-    mime='text/csv',
-)
+        """,
+        height=0,
+    )
+    st.info("💡 **Dica de Expert:** Ao abrir a janela de impressão, selecione 'Salvar como PDF' para gerar o relatório profissional da consultoria.")
