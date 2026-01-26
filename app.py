@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# CSS para métricas e visual
+# CSS para métricas, visual e ocultar elementos na impressão
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] { font-size: 24px; color: #00ffcc; }
@@ -17,6 +17,11 @@ st.markdown("""
         border-left: 6px solid #00ffcc;
         margin-bottom: 30px;
     }
+    @media print {
+        .stButton, .stDownloadButton, .sidebar, [data-testid="stSidebar"], .stRadio {
+            display: none !important;
+        }
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -25,7 +30,7 @@ st.markdown("""
     <div class="main-description">
         <h2 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h2>
         <p style="font-size: 1.15em;">
-            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
+            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão deve ser baseada no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
         </p>
         <p>
             Este simulador avançado, desenvolvido para o padrão de atendimento <b>GB</b>, compara o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>.
@@ -46,7 +51,7 @@ with st.sidebar:
     prazo_fin = st.number_input("Prazo Financiamento (Meses)", value=420)
     tr_mensal = st.slider("TR Mensal (%)", 0.0, 0.5, 0.12) / 100
 
-    st.header("🤝 Consórcio")
+    st.header("🤝 Consórcio (XP/Embracon)")
     v_contratacao_cons = st.number_input("Valor de Contratação (R$)", value=500000)
     taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 30.0, 20.0) / 100
     fundo_reserva = st.slider("Fundo de Reserva (%)", 0.0, 5.0, 2.0) / 100
@@ -59,16 +64,6 @@ with st.sidebar:
     aluguel_ini = st.number_input("Aluguel Inicial (R$)", value=2500)
     incc_anual = st.slider("INCC Anual (%)", 0.0, 12.0, 6.0) / 100
     igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 8.0) / 100
-
-# --- CHECKLIST DE PERFIL ---
-st.subheader("📝 Perfil do Investidor")
-col_p1, col_p2, col_p3 = st.columns(3)
-with col_p1:
-    urgencia = st.radio("Urgência para mudar?", ["Tenho pressa (D0)", "Posso aguardar o planejamento"])
-with col_p2:
-    foco = st.radio("Qual seu foco principal?", ["Menor custo total", "Morar hoje mesmo"])
-with col_p3:
-    liquidez_pref = st.radio("Prefere manter dinheiro em conta?", ["Sim, segurança acima de tudo", "Não, prefiro imobilizar"])
 
 # --- MOTOR DE CÁLCULO ---
 def rodar_simulacao():
@@ -174,13 +169,13 @@ for t in ["Financiamento", "Consórcio"]:
 fig_liq.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_liq, use_container_width=True)
 
-# --- PLANILHA (ACIMA DO PARECER) ---
+# --- PLANILHA ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
 st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
 
-# --- PARECER DO HEAD DE CRÉDITO (RESTAURADO COM VANTAGENS) ---
+# --- PARECER DO HEAD DE CRÉDITO ---
 st.divider()
 st.subheader("📑 Parecer Técnico: Head de Crédito e Consórcio")
 
@@ -194,9 +189,9 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.write(f"""
     **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     
-    **Por que esta é a melhor decisão?**
+    **Vantagens Competitivas:**
     1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
-    2. **Segurança de Liquidez:** Como demonstrado no gráfico, você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal enquanto aguarda a contemplação.
+    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal enquanto aguarda a contemplação.
     3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista", permitindo descontos que podem anular o custo da taxa de administração.
     4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente.
     """)
@@ -205,8 +200,27 @@ else:
     st.write(f"""
     **Análise de Viabilidade:** Para este perfil e cenário, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
     
-    **Por que esta é a melhor decisão?**
-    1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você captura 100% da valorização imobiliária desde o mês 1. Em cenários de alta valorização, isso supera a economia do consórcio.
+    **Vantagens Competitivas:**
+    1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você captura 100% da valorização imobiliária desde o mês 1.
     2. **Fim do Aluguel:** A economia imediata do aluguel projetado com reajuste de {igpm_anual*100:.1f}% a.a. compensou o custo de juros.
     3. **Hospedagem Imediata:** A urgência em morar no imóvel próprio foi atendida sem depender de sorteios ou lances.
     """)
+
+# --- BOTÃO DE IMPRESSÃO ---
+st.divider()
+if st.button("🖨️ Gerar Resumo para Impressão"):
+    st.markdown("""
+        <script>
+            window.print();
+        </script>
+    """, unsafe_allow_html=True)
+    st.info("Dica: Ao abrir a janela de impressão, selecione 'Salvar como PDF' para gerar o arquivo do relatório.")
+
+# --- EXPORTAÇÃO CSV ---
+csv = df.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="📥 Baixar Dados Completos (CSV)",
+    data=csv,
+    file_name='simulacao_gb_completa.csv',
+    mime='text/csv',
+)
