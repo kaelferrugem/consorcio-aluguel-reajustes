@@ -6,12 +6,13 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# --- CSS: ESTILO DO APP E AJUSTE FINO PARA IMPRESSÃO BRANCA ---
+# --- CSS: RESTAURANDO O DARK MODE E FIXANDO A IMPRESSÃO ---
 st.markdown("""
     <style>
-    /* Estilo para visualização no navegador (Dark Mode padrão) */
+    /* 1. PADRÃO DO APP (DARK MODE) */
     [data-testid="stMetricValue"] { font-size: 24px; color: #00ffcc; }
     [data-testid="stMetricLabel"] { font-size: 16px; }
+    
     .main-description {
         background-color: rgba(0, 255, 204, 0.05);
         padding: 25px;
@@ -19,6 +20,7 @@ st.markdown("""
         border-left: 6px solid #00ffcc;
         margin-bottom: 30px;
     }
+
     .disclaimer {
         font-size: 11px;
         color: #888;
@@ -26,38 +28,33 @@ st.markdown("""
         text-align: justify;
     }
 
-    /* 🖨️ AJUSTE PARA IMPRESSÃO (FUNDO BRANCO TOTAL) */
+    /* 2. 🖨️ LÓGICA DE IMPRESSÃO (FUNDO BRANCO) */
     @media print {
-        /* Força fundo branco em todos os containers principais */
-        body, .main, .stApp, .main-description, [data-testid="metric-container"], .stMetric {
+        /* Força fundo branco geral apenas na impressão */
+        body, .stApp, .main, .main-description, [data-testid="metric-container"], .stMetric {
             background-color: white !important;
             color: black !important;
         }
         
-        /* Ajuste do quadro de descrição para não sair cinza/escuro */
+        /* Ajuste específico para o quadro de descrição no papel */
         .main-description {
-            background-color: white !important;
             border: 1px solid #000 !important;
+            background-color: #f9f9f9 !important;
+        }
+
+        /* Texto em preto para o papel */
+        [data-testid="stMetricValue"], [data-testid="stMetricLabel"], h1, h2, h3, h4, p, span {
             color: black !important;
         }
 
-        /* Garante que o texto das métricas saia em preto no papel */
-        [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
-            color: black !important;
+        /* Inverte os gráficos DARK para LIGHT no papel */
+        .js-plotly-plot {
+            filter: invert(1) brightness(1) contrast(1.2) !important;
         }
 
-        /* Esconde elementos de interface que não devem sair no PDF */
+        /* Oculta interface de navegação */
         .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr, .stDownloadButton {
             display: none !important;
-        }
-
-        /* Ajuste para Gráficos: Inverte e limpa para fundo branco */
-        .js-plotly-plot {
-            filter: invert(1) hue-rotate(180deg) brightness(1) !important;
-        }
-
-        h1, h2, h3, h4, p, span, div {
-            color: black !important;
         }
 
         /* Rodapé de Impressão */
@@ -74,10 +71,7 @@ st.markdown("""
         }
     }
     
-    /* Esconde o rodapé de impressão na tela normal */
-    .print-footer {
-        display: none;
-    }
+    .print-footer { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -94,7 +88,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR: PARÂMETROS PADRÃO (DADOS SOLICITADOS) ---
+# --- SIDEBAR: PARÂMETROS PADRÃO ---
 with st.sidebar:
     st.header("🏠 Parâmetros Gerais")
     v_imovel = st.number_input("Valor Atual do Imóvel (R$)", value=500000)
@@ -121,85 +115,85 @@ with st.sidebar:
     incc_anual = st.slider("INCC Anual (%)", 0.0, 12.0, 6.0) / 100 #
     igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 8.0) / 100 #
 
-# --- MOTOR DE CÁLCULO (MANTIDO EXATAMENTE IGUAL) ---
+# --- MOTOR DE CÁLCULO ---
 def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
     s_mensal = (1 + selic_anual)**(1/12) - 1
     data = []
     
-    s_devedor_fin = v_imovel - entrada_fin
-    imovel_v_fin = v_imovel
-    amort_base_fin = s_devedor_fin / prazo_fin
-    custo_acum_fin = entrada_fin
+    # FINANCIAMENTO
+    s_devedor_f = v_imovel - entrada_fin
+    imovel_v_f = v_imovel
+    amort_f = s_devedor_f / prazo_fin
+    custo_f = entrada_fin
     for m in range(1, prazo_fin + 1):
-        s_devedor_fin *= (1 + tr_mensal)
-        juros = s_devedor_fin * j_mensal
-        parcela = amort_base_fin + juros
-        imovel_v_fin *= (1 + v_mensal)
-        s_devedor_fin = max(0, s_devedor_fin - amort_base_fin)
-        custo_acum_fin += parcela
-        data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_fin - s_devedor_fin, "Custo Acumulado": custo_acum_fin, "Liquidez": 0})
+        s_devedor_f *= (1 + tr_mensal)
+        parcela = amort_f + (s_devedor_f * j_mensal)
+        imovel_v_f *= (1 + v_mensal)
+        s_devedor_f = max(0, s_devedor_f - amort_f)
+        custo_f += parcela
+        data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    credito_nom = v_contratacao_cons
+    # CONSÓRCIO
+    cred_n = v_contratacao_cons
     reserva = entrada_fin - lance_proprio
     aluguel_c = aluguel_ini
+    s_devedor_c = (cred_n * (1 + taxa_adm + fundo_reserva)) - (lance_proprio * (1 + (taxa_adm + fundo_reserva)/prazo_cons))
+    custo_c = (entrada_fin - reserva)
+    dif_red_acum = 0
     imovel_c = 0
-    s_devedor_c = (credito_nom * (1 + taxa_adm + fundo_reserva)) - (lance_proprio * (1 + (taxa_adm + fundo_reserva)/prazo_cons))
-    custo_acum_cons = (entrada_fin - reserva)
-    dif_redutor_acum = 0
     for m in range(1, prazo_fin + 1):
         if m % 12 == 1 and m > 1:
             aluguel_c *= (1 + igpm_anual)
-            if m <= mes_contemplacao: credito_nom *= (1 + incc_anual)
-        p_cheia = (credito_nom * (1 + taxa_adm + fundo_reserva)) / prazo_cons
-        p_reduzida = ((credito_nom * (1 + fundo_reserva)) * (1 - pct_redutor) + (credito_nom * taxa_adm)) / prazo_cons
-        imovel_mercado_atual = v_imovel * (1 + v_mensal)**m
-        c_aluguel = aluguel_c if m < mes_contemplacao else 0
+            if m <= mes_contemplacao: cred_n *= (1 + incc_anual)
+        p_ch = (cred_n * (1 + taxa_adm + fundo_reserva)) / prazo_cons
+        p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
+        imovel_mercado = v_imovel * (1 + v_mensal)**m
         if m < mes_contemplacao:
-            p_atual = p_reduzida
-            dif_redutor_acum += (p_cheia - p_reduzida)
+            p_at = p_re
+            dif_red_acum += (p_ch - p_re)
+            aluguel_at = aluguel_c
         elif m == mes_contemplacao:
-            s_devedor_c += dif_redutor_acum
-            v_embutido = credito_nom * pct_lance_embutido
-            poder_compra = (credito_nom - v_embutido) + lance_proprio
-            necessidade_complemento = max(0, imovel_mercado_atual - poder_compra)
-            reserva = max(0, reserva - necessidade_complemento)
-            imovel_c = imovel_mercado_atual
-            s_devedor_c -= v_embutido
-            p_atual = p_cheia
+            s_devedor_c += dif_red_acum
+            v_em = cred_n * pct_lance_embutido
+            reserva = max(0, reserva - max(0, imovel_mercado - (cred_n - v_em + lance_proprio)))
+            imovel_c = imovel_mercado
+            s_devedor_c -= v_em
+            p_at = p_ch
+            aluguel_at = 0
         else:
-            meses_restantes = max(1, prazo_cons - m + 1)
-            p_atual = s_devedor_c / meses_restantes if m <= prazo_cons else 0
+            p_at = s_devedor_c / max(1, prazo_cons - m + 1) if m <= prazo_cons else 0
+            aluguel_at = 0
         if imovel_c > 0: imovel_c *= (1 + v_mensal)
         reserva *= (1 + s_mensal)
-        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - (p_atual / (1 + taxa_adm + fundo_reserva)))
-        custo_acum_cons += (p_atual + c_aluguel)
-        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_atual, "Desembolso": p_atual + c_aluguel, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_acum_cons, "Liquidez": reserva})
+        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - (p_at / (1 + taxa_adm + fundo_reserva)))
+        custo_c += (p_at + aluguel_at)
+        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_at, "Desembolso": p_at + aluguel_at, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
     return pd.DataFrame(data)
 
 df = rodar_simulacao()
 
-# --- RESULTADOS FINAIS ---
+# --- RESULTADOS ---
 res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==prazo_fin)].iloc[0]
 res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==prazo_fin)].iloc[0]
 
 st.markdown("### 🎯 Comparativo Final")
-col_res1, col_res2 = st.columns(2)
-with col_res1:
+c1, c2 = st.columns(2)
+with c1:
     st.metric("Patrimônio Financiamento", f"R$ {res_fin['Patrimônio']:,.2f}")
     st.metric("Custo Total Financiamento", f"R$ {res_fin['Custo Acumulado']:,.2f}")
-with col_res2:
+with c2:
     st.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
     st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
 
-# --- GRÁFICOS ---
+# --- GRÁFICOS (TEMA DARK RESTAURADO) ---
 st.divider()
 st.subheader("📊 Evolução do Patrimônio Líquido")
 fig_pat = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
-    fig_pat.add_trace(go.Scatter(x=sub['Mês'], y=sub['Patrimônio'], name=t, hovertemplate="Mês %{x}<br>Patrimônio: R$ %{y:,.2f}"))
+    fig_pat.add_trace(go.Scatter(x=sub['Mês'], y=sub['Patrimônio'], name=t))
 fig_pat.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_pat, use_container_width=True)
 
@@ -208,11 +202,11 @@ st.subheader("💰 Evolução da Liquidez (Capital em Conta)")
 fig_liq = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
-    fig_liq.add_trace(go.Scatter(x=sub['Mês'], y=sub['Liquidez'], name=f"Reserva {t}", fill='tozeroy', hovertemplate="Mês %{x}<br>Liquidez: R$ %{y:,.2f}"))
+    fig_liq.add_trace(go.Scatter(x=sub['Mês'], y=sub['Liquidez'], name=f"Reserva {t}", fill='tozeroy'))
 fig_liq.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_liq, use_container_width=True)
 
-# --- PLANILHA ---
+# --- PLANILHA (ACIMA DO PARECER) ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
@@ -230,29 +224,31 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.write(f"""
     **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos ({prazo_fin} meses)**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
-    2. **Segurança de Liquidez:** Como demonstrado no gráfico, você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal.
-    3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista", permitindo descontos.
-    4. **Eficiência de Taxas:** Você foge dos juros compostos bancários.
+    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal.
+    3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista".
+    4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente pela TR.
     """)
 else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
     st.write(f"**Análise de Viabilidade:** Para este perfil, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.")
 
-# --- DISCLAIMER ---
+# --- DISCLAIMER (RESTAURADO AO PADRÃO PERFEITO) ---
 st.markdown("""
     <div class="disclaimer">
-        <b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas. 
-        Resultados passados não garantem ganhos futuros. A valorização imobiliária e os índices inflacionários podem variar.
+        <b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas e premissas econômicas (INCC, IGP-M, TR e Taxas de Juros) fornecidas pelo usuário ou configuradas por padrão. 
+        Resultados passados não garantem ganhos futuros. A valorização imobiliária e os índices inflacionários podem variar de acordo com o mercado. 
+        A contratação de qualquer produto financeiro deve ser precedida de análise cuidadosa dos contratos e regulamentos das instituições envolvidas. 
+        Esta simulação não constitui garantia de crédito ou contemplação.
     </div>
 """, unsafe_allow_html=True)
 
 # --- BOTÃO DE IMPRESSÃO ---
 st.divider()
-if st.button("🖨️ Gerar Relatório para Impressão"):
+if st.button("🖨️ Gerar Resumo para Impressão"):
     components.html("""<script>window.parent.print();</script>""", height=0)
-    st.info("💡 **Dica:** Ao abrir a janela de impressão, selecione 'Salvar como PDF' para o relatório oficial.")
+    st.info("💡 **Dica:** Selecione 'Salvar como PDF' para o relatório oficial.")
 
-# --- RODAPÉ DE IMPRESSÃO (EXCLUSIVO PDF) ---
+# --- RODAPÉ DE IMPRESSÃO ---
 st.markdown(f"""
     <div class="print-footer">
         Consultoria Estratégica GB - Simulador de Patrimônio Líquido<br>
