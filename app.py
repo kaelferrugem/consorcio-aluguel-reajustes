@@ -6,9 +6,10 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# CSS para métricas, visual e ocultar elementos indesejados na impressão
+# --- CSS: ESTILO DO APP E CONFIGURAÇÃO DE IMPRESSÃO ---
 st.markdown("""
     <style>
+    /* Estilo para visualização no navegador */
     [data-testid="stMetricValue"] { font-size: 24px; color: #00ffcc; }
     [data-testid="stMetricLabel"] { font-size: 16px; }
     .main-description {
@@ -18,15 +19,53 @@ st.markdown("""
         border-left: 6px solid #00ffcc;
         margin-bottom: 30px;
     }
-    /* Estilos para a Impressão */
+    
+    /* Disclaimer no App */
+    .disclaimer {
+        font-size: 11px;
+        color: #888;
+        margin-top: 40px;
+        text-align: justify;
+    }
+
+    /* ESTILO EXCLUSIVO PARA IMPRESSÃO (PDF/PAPEL) */
     @media print {
-        .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, .stDownloadButton, footer {
-            display: none !important;
-        }
-        .main {
+        /* Força fundo branco e texto preto */
+        .main, .stApp, .main-description {
             background-color: white !important;
             color: black !important;
         }
+        /* Oculta Sidebar, Botões e Elementos Interativos */
+        .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr {
+            display: none !important;
+        }
+        /* Ajusta Gráficos e Tabelas para o Branco */
+        .js-plotly-plot {
+            filter: invert(1) hue-rotate(180deg); /* Inverte cores para o gráfico ficar visível no branco */
+        }
+        h1, h2, h3, h4, p, span {
+            color: black !important;
+        }
+        .main-description {
+            border: 1px solid #ccc;
+            background-color: #f9f9f9 !important;
+        }
+        /* Rodapé de Impressão */
+        .print-footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+            color: #555 !important;
+        }
+    }
+    
+    /* Oculta o rodapé de impressão na tela do navegador */
+    .print-footer {
+        display: none;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -44,7 +83,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR: PARÂMETROS PADRÃO (CONFORME SOLICITADO) ---
+# --- SIDEBAR: PARÂMETROS PADRÃO ---
 with st.sidebar:
     st.header("🏠 Parâmetros Gerais")
     v_imovel = st.number_input("Valor Atual do Imóvel (R$)", value=500000)
@@ -175,18 +214,17 @@ for t in ["Financiamento", "Consórcio"]:
 fig_liq.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_liq, use_container_width=True)
 
-# --- PLANILHA (MEMÓRIA DE CÁLCULO ACIMA DO PARECER) ---
+# --- PLANILHA ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
 st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
 
-# --- PARECER DO HEAD DE CRÉDITO (RESTORE COM VANTAGENS) ---
+# --- PARECER TÉCNICO ---
 st.divider()
 st.subheader("📑 Parecer Técnico: Head de Crédito e Consórcio")
 
-anos_fin = prazo_fin / 12
-anos_cons = prazo_cons / 12
+anos_fin, anos_cons = prazo_fin / 12, prazo_cons / 12
 anos_economizados = (prazo_fin - prazo_cons) / 12
 dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
 
@@ -195,33 +233,46 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.write(f"""
     **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     
-    **Por que esta é a melhor decisão?**
-    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos ({prazo_fin} meses)**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
-    2. **Segurança de Liquidez:** Como demonstrado no gráfico, você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal enquanto aguarda a contemplação.
+    **Vantagens Competitivas:**
+    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
+    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal enquanto aguarda a contemplação.
     3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista", permitindo descontos que podem anular o custo da taxa de administração.
-    4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente.
+    4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente pela TR.
     """)
 else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
     st.write(f"""
     **Análise de Viabilidade:** Para este perfil e cenário, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
     
-    **Por que esta é a melhor decisão?**
+    **Vantagens Competitivas:**
     1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você captura 100% da valorização imobiliária desde o mês 1.
-    2. **Fim do Aluguel:** A economia imediata do aluguel projetado com reajuste de {igpm_anual*100:.1f}% a.a. compensou o custo de juros.
+    2. **Fim do Aluguel:** A economia imediata do aluguel projetado com reajuste de {igpm_anual*100:.1f}% a.a. compensou o custo de juros de {juros_anual*100:.1f}% a.a.
     3. **Hospedagem Imediata:** A urgência em morar no imóvel próprio foi atendida sem depender de sorteios ou lances.
     """)
 
-# --- BOTÃO DE IMPRESSÃO (CORRIGIDO) ---
+# --- DISCLAIMER ---
+st.markdown("""
+    <div class="disclaimer">
+        <b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas e premissas econômicas (INCC, IGP-M, TR e Taxas de Juros) fornecidas pelo usuário ou configuradas por padrão. 
+        Resultados passados não garantem ganhos futuros. A valorização imobiliária e os índices inflacionários podem variar de acordo com o mercado. 
+        A contratação de qualquer produto financeiro deve ser precedida de análise cuidadosa dos contratos e regulamentos das instituições envolvidas. 
+        Esta simulação não constitui garantia de crédito ou contemplação.
+    </div>
+""", unsafe_allow_html=True)
+
+# --- BOTÃO DE IMPRESSÃO ---
 st.divider()
-if st.button("🖨️ Gerar Resumo para Impressão"):
-    # Chamando window.parent.print() através de um componente HTML para garantir execução no browser
+if st.button("🖨️ Gerar Relatório para Impressão"):
     components.html(
-        """
-        <script>
-            window.parent.print();
-        </script>
-        """,
+        """<script>window.parent.print();</script>""",
         height=0,
     )
-    st.info("💡 **Dica de Expert:** Ao abrir a janela de impressão, selecione 'Salvar como PDF' para gerar o relatório profissional da consultoria.")
+    st.info("💡 **Dica:** Ao abrir a janela de impressão, selecione 'Salvar como PDF' para o relatório oficial.")
+
+# --- RODAPÉ DE IMPRESSÃO (EXCLUSIVO PDF) ---
+st.markdown(f"""
+    <div class="print-footer">
+        Consultoria Estratégica GB - Simulador de Patrimônio Líquido<br>
+        <b>Responsável Técnico:</b> Head de Crédito e Consórcio GB
+    </div>
+""", unsafe_allow_html=True)
