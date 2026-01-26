@@ -20,7 +20,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- CABEÇALHO ESTRATÉGICO (RESTORE) ---
+# --- CABEÇALHO ESTRATÉGICO ---
 st.markdown("""
     <div class="main-description">
         <h2 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h2>
@@ -28,38 +28,37 @@ st.markdown("""
             Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
         </p>
         <p>
-            Este simulador avançado, desenvolvido para o padrão de atendimento <b>GB</b>, compara o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>, considerando valorização imobiliária, inflação e o impacto real do aluguel.
+            Este simulador avançado, desenvolvido para o padrão de atendimento <b>GB</b>, compara o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>.
         </p>
-        <small><i>"Matemática não tem opinião. Ela tem resultados."</i></small>
     </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR: CONFIGURAÇÕES MAIS UTILIZADAS (RESTORE) ---
+# --- SIDEBAR: PARÂMETROS PADRÃO ---
 with st.sidebar:
     st.header("🏠 Parâmetros Gerais")
     v_imovel = st.number_input("Valor Atual do Imóvel (R$)", value=500000)
     val_anual = st.slider("Valorização Anual (%)", 0.0, 15.0, 6.0) / 100
-    selic_anual = st.slider("Rendimento CDI (% a.a.)", 0.0, 15.0, 10.5) / 100 #
+    selic_anual = st.slider("Rendimento CDI (% a.a.)", 0.0, 15.0, 10.5) / 100
     
     st.header("📉 Financiamento (SAC)")
     entrada_fin = st.number_input("Entrada (R$)", value=100000)
-    juros_anual = st.slider("Juros Anual (%)", 5.0, 18.0, 12.3) / 100 #
-    prazo_fin = st.number_input("Prazo Financiamento (Meses)", value=420) #
-    tr_mensal = st.slider("TR Mensal (%)", 0.0, 0.5, 0.12) / 100 #
+    juros_anual = st.slider("Juros Anual (%)", 5.0, 18.0, 12.3) / 100
+    prazo_fin = st.number_input("Prazo Financiamento (Meses)", value=420)
+    tr_mensal = st.slider("TR Mensal (%)", 0.0, 0.5, 0.12) / 100
 
     st.header("🤝 Consórcio (XP/Embracon)")
     v_contratacao_cons = st.number_input("Valor de Contratação (R$)", value=500000)
-    taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 30.0, 20.0) / 100 #
+    taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 30.0, 20.0) / 100
     fundo_reserva = st.slider("Fundo de Reserva (%)", 0.0, 5.0, 2.0) / 100
-    prazo_cons = st.number_input("Prazo Consórcio (Meses)", value=240) #
+    prazo_cons = st.number_input("Prazo Consórcio (Meses)", value=240)
     lance_proprio = st.number_input("Lance Próprio (R$)", value=0)
-    pct_lance_embutido = st.slider("% Lance Embutido", 0, 30, 25) / 100 #
-    pct_redutor = st.slider("% Redutor de Parcela", 0, 50, 50) / 100 #
+    pct_lance_embutido = st.slider("% Lance Embutido", 0, 30, 25) / 100
+    pct_redutor = st.slider("% Redutor de Parcela", 0, 50, 50) / 100
     
     mes_contemplacao = st.slider("Mês Contemplação (Estimado)", 1, prazo_cons, 120)
     aluguel_ini = st.number_input("Aluguel Inicial (R$)", value=2500)
-    incc_anual = st.slider("INCC Anual (%)", 0.0, 12.0, 6.0) / 100 #
-    igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 8.0) / 100 #
+    incc_anual = st.slider("INCC Anual (%)", 0.0, 12.0, 6.0) / 100
+    igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 8.0) / 100
 
 # --- CHECKLIST DE PERFIL ---
 st.subheader("📝 Perfil do Investidor")
@@ -156,7 +155,7 @@ with c2:
     st.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
     st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
 
-# --- GRÁFICOS SEPARADOS E INTERATIVOS ---
+# --- GRÁFICOS ---
 st.divider()
 st.subheader("📊 Evolução do Patrimônio Líquido")
 fig_pat = go.Figure()
@@ -167,7 +166,7 @@ fig_pat.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_pat, use_container_width=True)
 
 st.divider()
-st.subheader("💰 Evolução da Liquidez (Capital Disponível)")
+st.subheader("💰 Evolução da Liquidez (Capital em Conta)")
 fig_liq = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
@@ -175,19 +174,39 @@ for t in ["Financiamento", "Consórcio"]:
 fig_liq.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_liq, use_container_width=True)
 
-# --- PARECER DINÂMICO ---
+# --- PLANILHA (ACIMA DO PARECER) ---
 st.divider()
-st.subheader("📑 Parecer do Head de Crédito e Consórcio")
-anos_fin, anos_cons = prazo_fin / 12, prazo_cons / 12
-if res_con['Patrimônio'] > res_fin['Patrimônio']:
-    st.success(f"### ✅ Recomendação: Planejamento Financeiro Estruturado (Consórcio)")
-    st.write(f"Sua vantagem final é de **R$ {res_con['Patrimônio'] - res_fin['Patrimônio']:,.2f}**. O ciclo de dívida de **{anos_cons:.1f} anos** economiza **{(prazo_fin - prazo_cons)/12:.1f} anos** de juros em relação ao financiamento de {anos_fin:.0f} anos.")
-else:
-    st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
-    st.write(f"O financiamento em **{anos_fin:.0f} anos** capturou a valorização imediata do ativo, superando o custo do aluguel projetado no período de espera.")
-
-# --- PLANILHA COMPLETA (RESTORE) ---
-st.divider()
-st.subheader("📋 Memória de Cálculo Completa (Mês a Mês)")
+st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
 st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
+
+# --- PARECER DO HEAD DE CRÉDITO (RESTAURADO COM VANTAGENS) ---
+st.divider()
+st.subheader("📑 Parecer Técnico: Head de Crédito e Consórcio")
+
+anos_fin = prazo_fin / 12
+anos_cons = prazo_cons / 12
+anos_economizados = (prazo_fin - prazo_cons) / 12
+dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
+
+if res_con['Patrimônio'] > res_fin['Patrimônio']:
+    st.success(f"### ✅ Recomendação: Planejamento Financeiro Estruturado (Consórcio)")
+    st.write(f"""
+    **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
+    
+    **Por que esta é a melhor decisão?**
+    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
+    2. **Segurança de Liquidez:** Como demonstrado no gráfico, você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal enquanto aguarda a contemplação.
+    3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista", permitindo descontos que podem anular o custo da taxa de administração.
+    4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente.
+    """)
+else:
+    st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
+    st.write(f"""
+    **Análise de Viabilidade:** Para este perfil e cenário, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
+    
+    **Por que esta é a melhor decisão?**
+    1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você captura 100% da valorização imobiliária desde o mês 1. Em cenários de alta valorização, isso supera a economia do consórcio.
+    2. **Fim do Aluguel:** A economia imediata do aluguel projetado com reajuste de {igpm_anual*100:.1f}% a.a. compensou o custo de juros.
+    3. **Hospedagem Imediata:** A urgência em morar no imóvel próprio foi atendida sem depender de sorteios ou lances.
+    """)
