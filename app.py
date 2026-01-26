@@ -6,10 +6,10 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# --- CSS: RESTAURANDO O DARK MODE E FIXANDO A IMPRESSÃO ---
+# --- CSS: ESTILO DO APP E AJUSTE DE IMPRESSÃO BRANCA TOTAL ---
 st.markdown("""
     <style>
-    /* 1. PADRÃO DO APP (DARK MODE) */
+    /* 1. VISUALIZAÇÃO NO NAVEGADOR (DARK MODE) */
     [data-testid="stMetricValue"] { font-size: 24px; color: #00ffcc; }
     [data-testid="stMetricLabel"] { font-size: 16px; }
     
@@ -28,31 +28,32 @@ st.markdown("""
         text-align: justify;
     }
 
-    /* 2. 🖨️ LÓGICA DE IMPRESSÃO (FUNDO BRANCO) */
+    /* 2. 🖨️ LÓGICA DE IMPRESSÃO (FUNDO BRANCO TOTAL) */
     @media print {
-        /* Força fundo branco geral apenas na impressão */
+        /* Força fundo branco em todos os containers */
         body, .stApp, .main, .main-description, [data-testid="metric-container"], .stMetric {
             background-color: white !important;
             color: black !important;
         }
         
-        /* Ajuste específico para o quadro de descrição no papel */
+        /* Ajuste do quadro de descrição no papel */
         .main-description {
             border: 1px solid #000 !important;
             background-color: #f9f9f9 !important;
-        }
-
-        /* Texto em preto para o papel */
-        [data-testid="stMetricValue"], [data-testid="stMetricLabel"], h1, h2, h3, h4, p, span {
             color: black !important;
         }
 
-        /* Inverte os gráficos DARK para LIGHT no papel */
-        .js-plotly-plot {
+        /* Texto em preto para o papel */
+        [data-testid="stMetricValue"], [data-testid="stMetricLabel"], h1, h2, h3, h4, p, span, div {
+            color: black !important;
+        }
+
+        /* INVERTE GRÁFICOS E PLANILHAS PARA FUNDO BRANCO NO PAPEL */
+        .js-plotly-plot, [data-testid="stDataFrame"], [data-testid="stTable"] {
             filter: invert(1) brightness(1) contrast(1.2) !important;
         }
 
-        /* Oculta interface de navegação */
+        /* Oculta interface de navegação e botões */
         .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr, .stDownloadButton {
             display: none !important;
         }
@@ -122,7 +123,6 @@ def rodar_simulacao():
     s_mensal = (1 + selic_anual)**(1/12) - 1
     data = []
     
-    # FINANCIAMENTO
     s_devedor_f = v_imovel - entrada_fin
     imovel_v_f = v_imovel
     amort_f = s_devedor_f / prazo_fin
@@ -135,7 +135,6 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    # CONSÓRCIO
     cred_n = v_contratacao_cons
     reserva = entrada_fin - lance_proprio
     aluguel_c = aluguel_ini
@@ -187,7 +186,7 @@ with c2:
     st.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
     st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
 
-# --- GRÁFICOS (TEMA DARK RESTAURADO) ---
+# --- GRÁFICOS ---
 st.divider()
 st.subheader("📊 Evolução do Patrimônio Líquido")
 fig_pat = go.Figure()
@@ -206,7 +205,7 @@ for t in ["Financiamento", "Consórcio"]:
 fig_liq.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_liq, use_container_width=True)
 
-# --- PLANILHA (ACIMA DO PARECER) ---
+# --- PLANILHA (MEMÓRIA DE CÁLCULO DETALHADA) ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
@@ -224,7 +223,7 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.write(f"""
     **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos ({prazo_fin} meses)**, o consórcio liquida sua dívida em apenas **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
-    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal.
+    2. **Segurança de Liquidez:** Como demonstrado no gráfico, você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a., protegendo seu caixa pessoal.
     3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista".
     4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente pela TR.
     """)
@@ -232,7 +231,7 @@ else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
     st.write(f"**Análise de Viabilidade:** Para este perfil, o **Financiamento Imobiliário** é a escolha técnica, resultando em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.")
 
-# --- DISCLAIMER (RESTAURADO AO PADRÃO PERFEITO) ---
+# --- DISCLAIMER (RESTAURADO) ---
 st.markdown("""
     <div class="disclaimer">
         <b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas e premissas econômicas (INCC, IGP-M, TR e Taxas de Juros) fornecidas pelo usuário ou configuradas por padrão. 
@@ -246,7 +245,6 @@ st.markdown("""
 st.divider()
 if st.button("🖨️ Gerar Resumo para Impressão"):
     components.html("""<script>window.parent.print();</script>""", height=0)
-    st.info("💡 **Dica:** Selecione 'Salvar como PDF' para o relatório oficial.")
 
 # --- RODAPÉ DE IMPRESSÃO ---
 st.markdown(f"""
