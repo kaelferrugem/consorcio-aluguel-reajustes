@@ -28,7 +28,7 @@ st.markdown("""
         text-align: justify;
     }
 
-    /* 2. LÓGICA DE IMPRESSÃO (FUNDO BRANCO TOTAL NO PDF) */
+    /* 2. 🖨️ LÓGICA DE IMPRESSÃO (FUNDO BRANCO TOTAL NO PDF) */
     @media print {
         body, .stApp, .main, .main-description, [data-testid="metric-container"], .stMetric {
             background-color: white !important;
@@ -71,7 +71,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- CABEÇALHO ESTRATÉGICO (RESTAURADO) ---
+# --- CABEÇALHO ESTRATÉGICO (RESTAURADO COMPLETO) ---
 st.markdown("""
     <div class="main-description">
         <h2 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h2>
@@ -123,14 +123,14 @@ if not nome_assessor or not nome_cliente:
     st.warning("⚠️ **Acesso Restrito:** Por favor, identifique o **Assessor** e o **Cliente** na barra lateral para liberar a simulação.")
     st.stop()
 
-# --- MOTOR DE CÁLCULO (COM CORREÇÕES TÉCNICAS) ---
+# --- MOTOR DE CÁLCULO (CORREÇÃO DE VALORIZAÇÃO LINEAR) ---
 def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
     s_mensal = (1 + selic_anual)**(1/12) - 1
     data = []
     
-    # 1. FINANCIAMENTO (SAC + TR)
+    # 1. FINANCIAMENTO
     s_devedor_f = v_imovel - entrada_fin
     imovel_v_f = v_imovel
     amort_f = s_devedor_f / prazo_fin
@@ -143,7 +143,7 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    # 2. CONSÓRCIO (INCC ANUAL + TETO DE PATRIMÔNIO)
+    # 2. CONSÓRCIO
     cred_n = v_contratacao_cons
     taxa_total_anual = (taxa_adm + fundo_reserva)
     reserva = entrada_fin - lance_proprio
@@ -152,23 +152,25 @@ def rodar_simulacao():
     custo_c = (entrada_fin - reserva)
     dif_red_acum = 0
     imovel_c = 0
-    p_at = 0
+    p_atual = 0
+    pct_propriedade = 0
 
     for m in range(1, prazo_fin + 1):
-        # Reajuste Anual (Aniversário da Cota)
+        # Reajuste da Cota (ANUAL - 12 meses)
         if m % 12 == 1 and m > 1:
             aluguel_c *= (1 + igpm_anual)
-            fator = (1 + incc_anual)
-            cred_n *= fator
-            s_devedor_c *= fator
-            if p_at > 0: p_at *= fator
+            fator_incc = (1 + incc_anual)
+            cred_n *= fator_incc
+            s_devedor_c *= fator_incc
+            if p_atual > 0: p_atual *= fator_incc
 
+        # Valorização do Mercado (MENSAL - Linear no gráfico)
         imovel_mercado = v_imovel * (1 + v_mensal)**m
         
         if m < mes_contemplacao:
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
-            p_at = p_re
+            p_atual = p_re
             dif_red_acum += (p_ch - p_re)
             aluguel_at = aluguel_c
         elif m == mes_contemplacao:
@@ -176,21 +178,23 @@ def rodar_simulacao():
             v_em = cred_n * pct_lance_embutido
             s_devedor_c -= v_em
             poder_compra = (cred_n - v_em) + lance_proprio
-            # TETO DE PATRIMÔNIO: Compra baseada no fôlego financeiro real
+            # Define o percentual de propriedade baseado no fôlego financeiro
             imovel_c = min(imovel_mercado, poder_compra + reserva)
+            pct_propriedade = imovel_c / imovel_mercado
             reserva = max(0, reserva - max(0, imovel_mercado - poder_compra))
             meses_restantes = max(1, prazo_cons - m + 1)
-            p_at = s_devedor_c / meses_restantes
+            p_atual = s_devedor_c / meses_restantes
             aluguel_at = 0
         else:
-            if m > prazo_cons: p_at = 0
+            # Valorização linear após a compra
+            imovel_c = imovel_mercado * pct_propriedade
+            if m > prazo_cons: p_atual = 0
             aluguel_at = 0
 
-        if imovel_c > 0: imovel_c *= (1 + v_mensal)
         reserva *= (1 + s_mensal)
-        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - p_at)
-        custo_c += (p_at + aluguel_at)
-        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_at, "Desembolso": p_at + aluguel_at, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
+        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - p_atual)
+        custo_c += (p_atual + aluguel_at)
+        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_atual, "Desembolso": p_atual + aluguel_at, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
     return pd.DataFrame(data)
 
 df = rodar_simulacao()
@@ -212,6 +216,7 @@ with c2:
 # --- GRÁFICOS ---
 st.divider()
 st.subheader("📊 Evolução do Patrimônio Líquido")
+
 fig_pat = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
@@ -234,7 +239,7 @@ st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
 st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
 
-# --- PARECER TÉCNICO (VANTAGENS DETALHADAS RESTAURADAS) ---
+# --- PARECER TÉCNICO (RESTAURADO COMPLETO) ---
 st.divider()
 st.subheader("📑 Parecer Técnico: Especialista em Crédito")
 anos_fin, anos_cons = prazo_fin / 12, prazo_cons / 12
@@ -246,7 +251,6 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.write(f"""
     **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     
-    **Vantagens Competitivas:**
     1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos ({prazo_fin} meses)**, o consórcio liquida em **{anos_cons:.1f} anos ({prazo_cons} meses)**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
     2. **Segurança de Liquidez:** Você mantém capital investido rendendo a **{selic_anual*100:.1f}% a.a.**, protegendo seu caixa pessoal enquanto aguarda a contemplação.
     3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista", permitindo descontos que podem anular o custo da taxa de administração.
@@ -258,11 +262,11 @@ else:
     **Análise de Viabilidade:** Para este perfil e cenário, o **Financiamento Imobiliário** resultou em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
     
     1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você captura 100% da valorização imobiliária desde o mês 1.
-    2. **Fim do Aluguel:** A economia imediata do aluguel projetado compensou o custo de juros bancários.
+    2. **Fim do Aluguel:** A economia imediata do aluguel projetado compensou o custo de juros bancários de **{juros_anual*100:.1f}% a.a.**
     3. **Hospedagem Imediata:** A urgência em morar no imóvel próprio foi atendida sem depender de sorteios ou lances.
     """)
 
-# --- DISCLAIMER (RESTAURADO) ---
+# --- DISCLAIMER (RESTAURADO COMPLETO) ---
 st.markdown("""
     <div class="disclaimer">
         <b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas e premissas econômicas (INCC, IGP-M, TR e Taxas de Juros) fornecidas pelo usuário ou configuradas por padrão. 
