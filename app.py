@@ -44,8 +44,8 @@ st.markdown("""
         .print-only-premissas {
             display: block !important;
             margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #eee;
+            padding: 20px;
+            border: 1px solid #ddd;
             border-radius: 8px;
             font-size: 13px;
         }
@@ -90,7 +90,7 @@ st.markdown("""
     <div class="main-description">
         <h2 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h2>
         <p style="font-size: 1.15em;">
-            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
+            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decision não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
         </p>
         <p>
             Este simulador utiliza algoritmos de mercado para comparar o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>, considerando valorização imobiliária, inflação (INCC/IGP-M) e custo de oportunidade.
@@ -131,33 +131,37 @@ if not nome_assessor or not nome_cliente:
     st.warning("⚠️ **Acesso Restrito:** Identifique Assessor e Cliente na lateral.")
     st.stop()
 
-# --- SEÇÃO EXCLUSIVA DE PREMISSAS PARA O PDF ---
+# --- SEÇÃO EXCLUSIVA DE PREMISSAS PARA O PDF (ATUALIZADA) ---
 st.markdown(f"""
     <div class="print-only-premissas">
-        <h3 style="margin-top:0;">📋 Resumo das Premissas da Simulação</h3>
-        <table style="width:100%; border-collapse: collapse;">
+        <h3 style="margin-top:0; color: #333; border-bottom: 2px solid #00ffcc; padding-bottom: 5px;">📋 Detalhamento das Premissas Simuladas</h3>
+        <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
             <tr>
-                <td style="padding: 5px; border-bottom: 1px solid #eee;"><b>Valor do Imóvel:</b> R$ {v_imovel:,.2f}</td>
-                <td style="padding: 5px; border-bottom: 1px solid #eee;"><b>Valorização Anual:</b> {val_anual*100:.1f}%</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Valor do Imóvel:</b> R$ {v_imovel:,.2f}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Valor do Consórcio:</b> R$ {v_contratacao_cons:,.2f}</td>
             </tr>
             <tr>
-                <td style="padding: 5px; border-bottom: 1px solid #eee;"><b>Aluguel Inicial:</b> R$ {aluguel_ini:,.2f}</td>
-                <td style="padding: 5px; border-bottom: 1px solid #eee;"><b>Rendimento CDI:</b> {selic_anual*100:.1f}% a.a.</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Aluguel Inicial:</b> R$ {aluguel_ini:,.2f}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Valorização Imobiliária:</b> {val_anual*100:.1f}% a.a.</td>
             </tr>
             <tr>
-                <td style="padding: 5px; border-bottom: 1px solid #eee;"><b>INCC Estimado:</b> {incc_anual*100:.1f}%</td>
-                <td style="padding: 5px; border-bottom: 1px solid #eee;"><b>IGP-M Estimado:</b> {igpm_anual*100:.1f}%</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Contemplação Estimada:</b> Mês {mes_contemplacao}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Rendimento CDI (Liquidez):</b> {selic_anual*100:.1f}% a.a.</td>
             </tr>
             <tr>
-                <td colspan="2" style="padding: 10px 0 5px 0;"><b>⚙️ Detalhes dos Produtos:</b></td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>INCC (Reajuste Anual):</b> {incc_anual*100:.1f}%</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>IGP-M (Reajuste Aluguel):</b> {igpm_anual*100:.1f}%</td>
             </tr>
             <tr>
-                <td style="padding: 5px;"><b>Financiamento:</b> {prazo_fin} meses | Juros: {juros_anual*100:.1f}% a.a.</td>
-                <td style="padding: 5px;"><b>Consórcio:</b> {prazo_cons} meses | Contemplação: Mês {mes_contemplacao}</td>
+                <td colspan="2" style="padding: 15px 0 5px 0; border-bottom: 1px solid #eee;"><b>⚙️ Parâmetros Comparativos:</b></td>
             </tr>
             <tr>
-                <td style="padding: 5px;"><b>Entrada:</b> R$ {entrada_fin:,.2f}</td>
-                <td style="padding: 5px;"><b>Lance Embutido:</b> {pct_lance_embutido*100:.0f}% | Redutor: {pct_redutor*100:.0f}%</td>
+                <td style="padding: 8px;"><b>Financiamento:</b> {prazo_fin} meses | Juros: {juros_anual*100:.1f}% a.a.</td>
+                <td style="padding: 8px;"><b>Consórcio:</b> {prazo_cons} meses | Taxa Total: {taxa_adm*100:.1f}%</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px;"><b>Entrada (Cash):</b> R$ {entrada_fin:,.2f}</td>
+                <td style="padding: 8px;"><b>Lance Embutido:</b> {pct_lance_embutido*100:.0f}% | Redutor: {pct_redutor*100:.0f}%</td>
             </tr>
         </table>
     </div>
