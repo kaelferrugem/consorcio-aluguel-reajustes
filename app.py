@@ -6,11 +6,13 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# --- CSS: APP DARK E IMPRESSÃO BRANCA ---
+# --- CSS: APP DARK E IMPRESSÃO (FUNDO BRANCO APENAS NO PAPEL) ---
 st.markdown("""
     <style>
+    /* 1. VISUALIZAÇÃO NO NAVEGADOR (DARK MODE) */
     [data-testid="stMetricValue"] { font-size: 24px; color: #00ffcc; }
     [data-testid="stMetricLabel"] { font-size: 16px; }
+    
     .main-description {
         background-color: rgba(0, 255, 204, 0.05);
         padding: 25px;
@@ -18,27 +20,40 @@ st.markdown("""
         border-left: 6px solid #00ffcc;
         margin-bottom: 30px;
     }
+
     .disclaimer {
         font-size: 11px;
         color: #888;
         margin-top: 40px;
         text-align: justify;
     }
+
+    /* 2. 🖨️ LÓGICA DE IMPRESSÃO (FUNDO BRANCO NO PDF) */
     @media print {
         body, .stApp, .main, .main-description, [data-testid="metric-container"], .stMetric {
             background-color: white !important;
             color: black !important;
         }
-        .main-description { border: 1px solid #000 !important; background-color: #f9f9f9 !important; }
+        
+        .main-description {
+            border: 1px solid #000 !important;
+            background-color: #f9f9f9 !important;
+            color: black !important;
+        }
+
         [data-testid="stMetricValue"], [data-testid="stMetricLabel"], h1, h2, h3, h4, p, span, div, b {
             color: black !important;
         }
+
+        /* Inverte Gráficos e Planilhas APENAS na Impressão */
         [data-testid="stDataFrame"], [data-testid="stTable"], .js-plotly-plot {
             filter: invert(1) brightness(1) contrast(1.2) !important;
         }
+
         .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr, .stDownloadButton {
             display: none !important;
         }
+
         .print-footer {
             display: block !important;
             position: fixed;
@@ -51,11 +66,12 @@ st.markdown("""
             color: #555 !important;
         }
     }
+    
     .print-footer { display: none; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CABEÇALHO ---
+# --- CABEÇALHO ESTRATÉGICO (RESTAURADO) ---
 st.markdown("""
     <div class="main-description">
         <h2 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h2>
@@ -63,27 +79,31 @@ st.markdown("""
             Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
         </p>
         <p>
-            Este simulador utiliza algoritmos de mercado para comparar o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>.
+            Este simulador utiliza algoritmos de mercado para comparar o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>, considerando valorização imobiliária, inflação (INCC/IGP-M) e custo de oportunidade.
         </p>
         <small><i>"Matemática não tem opinião. Ela tem resultados."</i></small>
     </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR ---
+# --- SIDEBAR: IDENTIFICAÇÃO E PARÂMETROS ---
 with st.sidebar:
     st.header("👤 Identificação Obrigatória")
     nome_assessor = st.text_input("Nome do Assessor:")
     nome_cliente = st.text_input("Nome do Cliente:")
+    
     st.divider()
+    
     st.header("🏠 Parâmetros Gerais")
     v_imovel = st.number_input("Valor Atual do Imóvel (R$)", value=500000)
     val_anual = st.slider("Valorização Anual (%)", 0.0, 15.0, 6.0) / 100
     selic_anual = st.slider("Rendimento CDI (% a.a.)", 0.0, 15.0, 10.5) / 100
+    
     st.header("📉 Financiamento (SAC)")
     entrada_fin = st.number_input("Entrada (R$)", value=100000)
     juros_anual = st.slider("Juros Anual (%)", 5.0, 18.0, 12.3) / 100
     prazo_fin = st.number_input("Prazo Financiamento (Meses)", value=420)
     tr_mensal = st.slider("TR Mensal (%)", 0.0, 0.5, 0.12) / 100
+
     st.header("🤝 Consórcio (XP/Embracon)")
     v_contratacao_cons = st.number_input("Valor de Contratação (R$)", value=500000)
     taxa_adm = st.slider("Taxa de Adm. Total (%)", 10.0, 30.0, 20.0) / 100
@@ -92,16 +112,18 @@ with st.sidebar:
     lance_proprio = st.number_input("Lance Próprio (R$)", value=0)
     pct_lance_embutido = st.slider("% Lance Embutido", 0, 30, 25) / 100
     pct_redutor = st.slider("% Redutor de Parcela", 0, 50, 50) / 100
+    
     mes_contemplacao = st.slider("Mês Contemplação (Estimado)", 1, prazo_cons, 120)
     aluguel_ini = st.number_input("Aluguel Inicial (R$)", value=2500)
     incc_anual = st.slider("INCC Anual (%)", 0.0, 12.0, 6.0) / 100
     igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 8.0) / 100
 
+# --- TRAVA DE ACESSO ---
 if not nome_assessor or not nome_cliente:
-    st.warning("⚠️ **Acesso Restrito:** Identifique Assessor e Cliente na lateral.")
+    st.warning("⚠️ **Acesso Restrito:** Por favor, identifique o **Assessor** e o **Cliente** na barra lateral para liberar a simulação.")
     st.stop()
 
-# --- MOTOR DE CÁLCULO REVISADO (VERSÃO 3.6) ---
+# --- MOTOR DE CÁLCULO (VERSÃO 3.6 CORRIGIDA) ---
 def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
@@ -121,7 +143,7 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    # 2. CONSÓRCIO (LÓGICA DE PATRIMÔNIO CAPEADO)
+    # 2. CONSÓRCIO
     cred_n = v_contratacao_cons
     taxa_total_anual = (taxa_adm + fundo_reserva)
     reserva = entrada_fin - lance_proprio
@@ -133,7 +155,6 @@ def rodar_simulacao():
     p_atual = 0
 
     for m in range(1, prazo_fin + 1):
-        # Reajuste Anual
         if m % 12 == 1 and m > 1:
             aluguel_c *= (1 + igpm_anual)
             fator = (1 + incc_anual)
@@ -153,19 +174,9 @@ def rodar_simulacao():
             s_devedor_c += dif_red_acum
             v_em = cred_n * pct_lance_embutido
             s_devedor_c -= v_em
-            
-            # CAP DO PATRIMÔNIO: O cliente só compra o que o dinheiro alcança
-            liquido_disponivel = (cred_n - v_em) + lance_proprio
-            poder_compra_total = liquido_disponivel + reserva
-            
-            # Se o poder de compra for menor que o imóvel alvo, ele adquire um patrimônio menor
-            imovel_c = min(imovel_mercado, poder_compra_total)
-            
-            # Ajuste da reserva: gasta-se o que for necessário para chegar no imóvel mercado, 
-            # ou zera-se a reserva tentando chegar lá.
-            gasto_reserva = min(reserva, max(0, imovel_mercado - liquido_disponivel))
-            reserva -= gasto_reserva
-            
+            poder_compra = (cred_n - v_em) + lance_proprio
+            imovel_c = min(imovel_mercado, poder_compra + reserva)
+            reserva = max(0, reserva - max(0, imovel_mercado - poder_compra))
             meses_restantes = max(1, prazo_cons - m + 1)
             p_atual = s_devedor_c / meses_restantes
             aluguel_at = 0
@@ -175,32 +186,28 @@ def rodar_simulacao():
 
         if imovel_c > 0: imovel_c *= (1 + v_mensal)
         reserva *= (1 + s_mensal)
-        
-        if m <= prazo_cons:
-            s_devedor_c = max(0, s_devedor_c - p_atual)
-        
-        desembolso_mes = p_atual + aluguel_at
-        custo_c += desembolso_mes
-        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_atual, "Desembolso": desembolso_mes, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
+        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - p_atual)
+        custo_c += (p_at + aluguel_at) if 'p_at' in locals() else (p_atual + aluguel_at)
+        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_atual, "Desembolso": p_atual + aluguel_at, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
     return pd.DataFrame(data)
 
 df = rodar_simulacao()
 
-# --- EXIBIÇÃO ---
+# --- RESULTADOS ---
 st.info(f"📋 **Simulação preparada para:** {nome_cliente} | **Responsável:** {nome_assessor}")
 res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==prazo_fin)].iloc[0]
 res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==prazo_fin)].iloc[0]
 
 st.markdown("### 🎯 Comparativo Final")
-c1, c2 = st.columns(2)
-with c1:
+col_res1, col_res2 = st.columns(2)
+with col_res1:
     st.metric("Patrimônio Financiamento", f"R$ {res_fin['Patrimônio']:,.2f}")
     st.metric("Custo Total Financiamento", f"R$ {res_fin['Custo Acumulado']:,.2f}")
-with c2:
+with col_res2:
     st.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
     st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
 
-# --- GRÁFICOS ---
+# --- GRÁFICOS (TEMA DARK NO APP) ---
 st.divider()
 st.subheader("📊 Evolução do Patrimônio Líquido")
 fig_pat = go.Figure()
@@ -219,48 +226,12 @@ for t in ["Financiamento", "Consórcio"]:
 fig_liq.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_liq, use_container_width=True)
 
-# --- PLANILHA ---
+# --- PLANILHA (TEMA DARK NO APP) ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
-st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
+st.dataframe(df[df['Tipo']==tipo_view].style.format({
+    "Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"
+}), use_container_width=True)
 
-# --- PARECER TÉCNICO ---
-st.divider()
-st.subheader("📑 Parecer Técnico: Especialista em Crédito")
-anos_fin, anos_cons = prazo_fin / 12, prazo_cons / 12
-anos_economizados = (prazo_fin - prazo_cons) / 12
-dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
-
-if res_con['Patrimônio'] > res_fin['Patrimônio']:
-    st.success(f"### ✅ Recomendação: Planejamento Financeiro Estruturado (Consórcio)")
-    st.write(f"""
-    [cite_start]**Análise de Viabilidade:** O consórcio entrega um patrimônio **R$ {dif_patrimonio:,.2f} maior**. [cite: 139]
-    1. [cite_start]**Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida em **{anos_cons:.1f} anos**. [cite: 140]
-    2. [cite_start]**Segurança de Liquidez:** Você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a. [cite: 141]
-    3. [cite_start]**Poder de Barganha:** Compra à vista com carta contemplada. [cite: 142]
-    4. [cite_start]**Eficiência de Taxas:** Sem juros compostos bancários incidindo sobre saldo devedor corrigido pela TR. [cite: 143]
-    """)
-else:
-    st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
-    st.write(f"**Análise de Viabilidade:** Para este perfil, o **Financiamento Imobiliário** resultou em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.")
-
-st.markdown("""
-    <div class="disclaimer">
-        [cite_start]<b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas e premissas econômicas (INCC, IGP-M, TR e Taxas de Juros) fornecidas pelo usuário ou configuradas por padrão. [cite: 144]
-        [cite_start]Resultados passados não garantem ganhos futuros. [cite: 145] [cite_start]A valorização imobiliária e os indices inflacionários podem variar de acordo com o mercado. [cite: 145]
-        [cite_start]A contratação de qualquer produto financeiro deve ser precedida de análise cuidadosa dos contratos e regulamentos das instituições envolvidas. [cite: 146]
-        [cite_start]Esta simulação não constitui garantia de crédito ou contemplação. [cite: 147]
-    </div>
-""", unsafe_allow_html=True)
-
-st.divider()
-if st.button("🖨️ Gerar Resumo para Impressão"):
-    components.html("""<script>window.parent.print();</script>""", height=0)
-
-st.markdown(f"""
-    <div class="print-footer">
-        Consultoria Estratégica de Patrimônio - Cliente: {nome_cliente} | Assessor: {nome_assessor}<br>
-        <b>Responsável Técnico:</b> Especialista em Crédito e Consórcio
-    </div>
-""", unsafe_allow_html=True)
+# --- PA
