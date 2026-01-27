@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# --- CSS: APP DARK E IMPRESSÃO ---
+# --- CSS: APP DARK E IMPRESSÃO BRANCA ---
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] { font-size: 24px; color: #00ffcc; }
@@ -101,7 +101,7 @@ if not nome_assessor or not nome_cliente:
     st.warning("⚠️ **Acesso Restrito:** Identifique Assessor e Cliente na lateral.")
     st.stop()
 
-# --- MOTOR DE CÁLCULO REVISADO ---
+# --- MOTOR DE CÁLCULO REVISADO (VERSÃO 3.6) ---
 def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
@@ -121,12 +121,11 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    # 2. CONSÓRCIO (LÓGICA ANUAL CORRIGIDA)
+    # 2. CONSÓRCIO (LÓGICA DE PATRIMÔNIO CAPEADO)
     cred_n = v_contratacao_cons
     taxa_total_anual = (taxa_adm + fundo_reserva)
     reserva = entrada_fin - lance_proprio
     aluguel_c = aluguel_ini
-    # Dívida Inicial Totalizada
     s_devedor_c = (cred_n * (1 + taxa_total_anual)) - (lance_proprio * (1 + taxa_total_anual/prazo_cons))
     custo_c = (entrada_fin - reserva)
     dif_red_acum = 0
@@ -134,50 +133,49 @@ def rodar_simulacao():
     p_atual = 0
 
     for m in range(1, prazo_fin + 1):
-        # CORREÇÃO ANUAL (INCC/IGP-M) - A cada 12 meses
+        # Reajuste Anual
         if m % 12 == 1 and m > 1:
             aluguel_c *= (1 + igpm_anual)
-            incc_fator = (1 + incc_anual)
-            cred_n *= incc_fator
-            s_devedor_c *= incc_fator
-            # Se já houver uma parcela definida, ela também sofre o reajuste anual
-            if p_atual > 0: p_atual *= incc_fator
+            fator = (1 + incc_anual)
+            cred_n *= fator
+            s_devedor_c *= fator
+            if p_atual > 0: p_atual *= fator
 
         imovel_mercado = v_imovel * (1 + v_mensal)**m
         
-        # CÁLCULO DA PARCELA
         if m < mes_contemplacao:
-            # Lógica da Imagem: Redução incide sobre Crédito + Reserva, Taxa Adm é integral
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_atual = p_re
             dif_red_acum += (p_ch - p_re)
             aluguel_at = aluguel_c
         elif m == mes_contemplacao:
-            # AJUSTE DE CONTEMPLAÇÃO
-            s_devedor_c += dif_red_acum # Soma o que não foi pago no período reduzido
+            s_devedor_c += dif_red_acum
             v_em = cred_n * pct_lance_embutido
-            s_devedor_c -= v_em # Abate o lance embutido da dívida
+            s_devedor_c -= v_em
             
-            # Cálculo do Poder de Compra Líquido
-            poder_compra = (cred_n - v_em) + lance_proprio
-            necessidade_complemento = max(0, imovel_mercado - poder_compra)
-            reserva = max(0, reserva - necessidade_complemento)
+            # CAP DO PATRIMÔNIO: O cliente só compra o que o dinheiro alcança
+            liquido_disponivel = (cred_n - v_em) + lance_proprio
+            poder_compra_total = liquido_disponivel + reserva
             
-            imovel_c = imovel_mercado
-            # Recálculo da Parcela para o Saldo Restante
+            # Se o poder de compra for menor que o imóvel alvo, ele adquire um patrimônio menor
+            imovel_c = min(imovel_mercado, poder_compra_total)
+            
+            # Ajuste da reserva: gasta-se o que for necessário para chegar no imóvel mercado, 
+            # ou zera-se a reserva tentando chegar lá.
+            gasto_reserva = min(reserva, max(0, imovel_mercado - liquido_disponivel))
+            reserva -= gasto_reserva
+            
             meses_restantes = max(1, prazo_cons - m + 1)
             p_atual = s_devedor_c / meses_restantes
             aluguel_at = 0
         else:
-            # Pós-contemplação: Parcela segue o valor recalculado (ajustado apenas pelo INCC anual acima)
             if m > prazo_cons: p_atual = 0
             aluguel_at = 0
 
         if imovel_c > 0: imovel_c *= (1 + v_mensal)
         reserva *= (1 + s_mensal)
         
-        # Amortização do Saldo Devedor
         if m <= prazo_cons:
             s_devedor_c = max(0, s_devedor_c - p_atual)
         
@@ -237,11 +235,11 @@ dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
 if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.success(f"### ✅ Recomendação: Planejamento Financeiro Estruturado (Consórcio)")
     st.write(f"""
-    **Análise de Viabilidade:** O consórcio entrega um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
-    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida em **{anos_cons:.1f} anos**.
-    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a.
-    3. **Poder de Barganha:** Compra à vista com carta contemplada.
-    4. **Eficiência de Taxas:** Sem juros compostos bancários incidindo sobre saldo devedor corrigido pela TR.
+    [cite_start]**Análise de Viabilidade:** O consórcio entrega um patrimônio **R$ {dif_patrimonio:,.2f} maior**. [cite: 139]
+    1. [cite_start]**Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida em **{anos_cons:.1f} anos**. [cite: 140]
+    2. [cite_start]**Segurança de Liquidez:** Você mantém capital investido rendendo a {selic_anual*100:.1f}% a.a. [cite: 141]
+    3. [cite_start]**Poder de Barganha:** Compra à vista com carta contemplada. [cite: 142]
+    4. [cite_start]**Eficiência de Taxas:** Sem juros compostos bancários incidindo sobre saldo devedor corrigido pela TR. [cite: 143]
     """)
 else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
@@ -249,10 +247,10 @@ else:
 
 st.markdown("""
     <div class="disclaimer">
-        <b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas e premissas econômicas (INCC, IGP-M, TR e Taxas de Juros) fornecidas pelo usuário ou configuradas por padrão. 
-        Resultados passados não garantem ganhos futuros. A valorização imobiliária e os índices inflacionários podem variar de acordo com o mercado. 
-        A contratação de qualquer produto financeiro deve ser precedida de análise cuidadosa dos contratos e regulamentos das instituições envolvidas. 
-        Esta simulação não constitui garantia de crédito ou contemplação.
+        [cite_start]<b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas e premissas econômicas (INCC, IGP-M, TR e Taxas de Juros) fornecidas pelo usuário ou configuradas por padrão. [cite: 144]
+        [cite_start]Resultados passados não garantem ganhos futuros. [cite: 145] [cite_start]A valorização imobiliária e os indices inflacionários podem variar de acordo com o mercado. [cite: 145]
+        [cite_start]A contratação de qualquer produto financeiro deve ser precedida de análise cuidadosa dos contratos e regulamentos das instituições envolvidas. [cite: 146]
+        [cite_start]Esta simulação não constitui garantia de crédito ou contemplação. [cite: 147]
     </div>
 """, unsafe_allow_html=True)
 
