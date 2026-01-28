@@ -40,7 +40,6 @@ st.markdown("""
             color: black !important;
         }
         
-        /* Torna a seção de premissas visível apenas no papel */
         .print-only-premissas {
             display: block !important;
             margin-bottom: 20px;
@@ -90,7 +89,7 @@ st.markdown("""
     <div class="main-description">
         <h2 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h2>
         <p style="font-size: 1.15em;">
-            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decision não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
+            Financiar ou planejar? Se você hoje paga aluguel e possui capital para uma entrada, sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
         </p>
         <p>
             Este simulador utiliza algoritmos de mercado para comparar o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>, considerando valorização imobiliária, inflação (INCC/IGP-M) e custo de oportunidade.
@@ -131,7 +130,7 @@ if not nome_assessor or not nome_cliente:
     st.warning("⚠️ **Acesso Restrito:** Identifique Assessor e Cliente na lateral.")
     st.stop()
 
-# --- SEÇÃO EXCLUSIVA DE PREMISSAS PARA O PDF (ATUALIZADA) ---
+# --- RELATÓRIO DE PREMISSAS (PDF) ---
 st.markdown(f"""
     <div class="print-only-premissas">
         <h3 style="margin-top:0; color: #333; border-bottom: 2px solid #00ffcc; padding-bottom: 5px;">📋 Detalhamento das Premissas Simuladas</h3>
@@ -167,13 +166,14 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# --- MOTOR DE CÁLCULO (INALTERADO) ---
+# --- MOTOR DE CÁLCULO (CORREÇÃO APLICADA) ---
 def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
     s_mensal = (1 + selic_anual)**(1/12) - 1
     data = []
     
+    # 1. FINANCIAMENTO
     s_devedor_f = v_imovel - entrada_fin
     imovel_v_f = v_imovel
     amort_f = s_devedor_f / prazo_fin
@@ -186,6 +186,7 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
+    # 2. CONSÓRCIO (LÓGICA TEÓRICA CORRIGIDA)
     cred_n = v_contratacao_cons
     taxa_total_anual = (taxa_adm + fundo_reserva)
     reserva = entrada_fin - lance_proprio
@@ -212,25 +213,31 @@ def rodar_simulacao():
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_at = p_re
             dif_red_acum += (p_ch - p_re)
+            # Para manter s_devedor_c como "Teórico", amortizamos pelo valor cheio
+            amort_referencia = p_ch
             aluguel_at = aluguel_c
         elif m == mes_contemplacao:
-            s_devedor_c += dif_red_acum
+            # APLICAÇÃO DA REGRA: Saldo Teórico + Diferença - Lance
             v_em = cred_n * pct_lance_embutido
-            s_devedor_c -= v_em
+            s_devedor_c = (s_devedor_c + dif_red_acum) - v_em
+            
             poder_compra = (cred_n - v_em) + lance_proprio
             imovel_c = min(imovel_mercado, poder_compra + reserva)
             pct_propriedade = imovel_c / imovel_mercado
             reserva = max(0, reserva - max(0, imovel_mercado - poder_compra))
+            
             meses_restantes = max(1, prazo_cons - m + 1)
             p_at = s_devedor_c / meses_restantes
+            amort_referencia = p_at
             aluguel_at = 0
         else:
             imovel_c = imovel_mercado * pct_propriedade
-            if m > prazo_cons: p_at = 0
+            amort_referencia = p_at
+            if m > prazo_cons: p_at = amort_referencia = 0
             aluguel_at = 0
 
         reserva *= (1 + s_mensal)
-        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - p_at)
+        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - amort_referencia)
         custo_c += (p_at + aluguel_at)
         data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_at, "Desembolso": p_at + aluguel_at, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
     return pd.DataFrame(data)
@@ -288,10 +295,10 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.write(f"""
     **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     
-    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida em **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
-    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a **{selic_anual*100:.1f}% a.a.**, protegendo seu caixa pessoal.
-    3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista".
-    4. **Eficiência de Taxas:** Você foge dos juros compostos bancários incidindo sobre saldo devedor corrigido pela TR.
+    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida em **{anos_cons:.1f} anos**.
+    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a **{selic_anual*100:.1f}% a.a.**
+    3. **Poder de Barganha:** Compra à vista com carta contemplada.
+    4. **Eficiência de Taxas:** Sem juros compostos bancários incidindo sobre saldo devedor corrigido pela TR.
     """)
 else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
