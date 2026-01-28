@@ -166,7 +166,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# --- MOTOR DE CÁLCULO (CORREÇÃO APLICADA) ---
+# --- MOTOR DE CÁLCULO ---
 def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
@@ -186,7 +186,7 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    # 2. CONSÓRCIO (LÓGICA TEÓRICA CORRIGIDA)
+    # 2. CONSÓRCIO
     cred_n = v_contratacao_cons
     taxa_total_anual = (taxa_adm + fundo_reserva)
     reserva = entrada_fin - lance_proprio
@@ -197,44 +197,57 @@ def rodar_simulacao():
     imovel_c = 0
     p_at = 0
     pct_propriedade = 0
+    p_fixa_pos = 0
 
     for m in range(1, prazo_fin + 1):
+        # Reajuste Anual
         if m % 12 == 1 and m > 1:
             aluguel_c *= (1 + igpm_anual)
             fator_incc = (1 + incc_anual)
             cred_n *= fator_incc
             s_devedor_c *= fator_incc
-            if p_at > 0: p_at *= fator_incc
+            dif_red_acum *= fator_incc
+            if p_fixa_pos > 0: p_fixa_pos *= fator_incc
 
         imovel_mercado = v_imovel * (1 + v_mensal)**m
         
         if m < mes_contemplacao:
+            # Período Reduzido
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_at = p_re
             dif_red_acum += (p_ch - p_re)
-            # Para manter s_devedor_c como "Teórico", amortizamos pelo valor cheio
             amort_referencia = p_ch
             aluguel_at = aluguel_c
         elif m == mes_contemplacao:
-            # APLICAÇÃO DA REGRA: Saldo Teórico + Diferença - Lance
-            v_em = cred_n * pct_lance_embutido
-            s_devedor_c = (s_devedor_c + dif_red_acum) - v_em
+            # Mês da contemplação: A parcela AINDA é a reduzida
+            p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
+            p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
+            p_at = p_re
+            dif_red_acum += (p_ch - p_re)
+            amort_referencia = p_ch
+            aluguel_at = aluguel_c
             
+            # Prepara o imóvel para o cálculo de patrimônio (mora a partir do 61)
+            v_em = cred_n * pct_lance_embutido
             poder_compra = (cred_n - v_em) + lance_proprio
             imovel_c = min(imovel_mercado, poder_compra + reserva)
             pct_propriedade = imovel_c / imovel_mercado
             reserva = max(0, reserva - max(0, imovel_mercado - poder_compra))
+        else: # m > mes_contemplacao
+            if p_fixa_pos == 0:
+                # Ajuste de Saldo no primeiro mês após a contemplação (Mês 61)
+                v_em = cred_n * pct_lance_embutido
+                s_devedor_c = (s_devedor_c + dif_red_acum) - v_em
+                dif_red_acum = 0 
+                meses_restantes = max(1, prazo_cons - (m - 1))
+                p_fixa_pos = s_devedor_c / meses_restantes
             
-            meses_restantes = max(1, prazo_cons - m + 1)
-            p_at = s_devedor_c / meses_restantes
-            amort_referencia = p_at
-            aluguel_at = 0
-        else:
-            imovel_c = imovel_mercado * pct_propriedade
+            p_at = p_fixa_pos
             amort_referencia = p_at
             if m > prazo_cons: p_at = amort_referencia = 0
             aluguel_at = 0
+            imovel_c = imovel_mercado * pct_propriedade
 
         reserva *= (1 + s_mensal)
         if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - amort_referencia)
