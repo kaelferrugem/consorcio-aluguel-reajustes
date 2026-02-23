@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# --- CSS: APENAS FORMATAÇÃO DE LAYOUT E IMPRESSÃO ---
+# --- CSS: FOCO EXCLUSIVO EM LAYOUT DE IMPRESSÃO ---
 st.markdown("""
     <style>
     /* 1. INTERFACE DO NAVEGADOR */
@@ -37,25 +37,26 @@ st.markdown("""
             color: black !important;
         }
         
-        /* Reserva espaço no fundo para o rodapé fixo */
+        /* Espaço de segurança para o rodapé não cobrir o conteúdo */
         .main .block-container {
-            padding-bottom: 160px !important;
+            padding-bottom: 180px !important;
         }
 
-        /* ESCONDE A TABELA E ELEMENTOS DE INTERFACE DO PDF */
+        /* OCULTA TABELAS E BOTÕES NO PDF */
         .no-print, .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr, .stDownloadButton {
             display: none !important;
             height: 0 !important;
         }
 
-        /* IMPEDE QUE GRÁFICOS E PARECERES SEJAM DIVIDIDOS ENTRE PÁGINAS */
-        .print-block {
+        /* EVITA QUE GRÁFICOS E PARECERES SEJAM CORTADOS ENTRE PÁGINAS */
+        .print-container {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
             display: block !important;
-            margin-top: 40px !important;
+            margin-top: 30px !important;
         }
 
+        /* Detalha premissas no topo do PDF */
         .print-only-premissas {
             display: block !important;
             margin-bottom: 25px;
@@ -79,6 +80,7 @@ st.markdown("""
             filter: invert(1) brightness(1) contrast(1.2) !important;
         }
 
+        /* Rodapé Fixo e Protegido */
         .print-footer {
             display: block !important;
             position: fixed;
@@ -105,7 +107,7 @@ st.markdown("""
             Financiar ou planejar? Sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
         </p>
         <p>
-            Comparativo entre financiamento bancário e <b>Consórcio com Parcela Reduzida</b>, considerando valorização imobiliária, inflação e custo de oportunidade.
+            Este simulador utiliza algoritmos de mercado para comparar o custo real do financiamento bancário contra a estratégia de <b>Consórcio com Parcela Reduzida</b>, considerando valorização imobiliária, inflação (INCC/IGP-M) e custo de oportunidade.
         </p>
         <small><i>"Matemática não tem opinião. Ela tem resultados."</i></small>
     </div>
@@ -140,7 +142,7 @@ with st.sidebar:
     igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 8.0) / 100
 
 if not nome_assessor or not nome_cliente:
-    st.warning("⚠️ Identifique Assessor e Cliente na lateral.")
+    st.warning("⚠️ Identifique Assessor e Cliente para liberar a simulação.")
     st.stop()
 
 # --- PREMISSAS PDF ---
@@ -160,7 +162,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# --- MOTOR DE CÁLCULO ---
+# --- MOTOR DE CÁLCULO (INALTERADO) ---
 def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
@@ -189,7 +191,7 @@ def rodar_simulacao():
     imovel_c = 0
     p_at = 0
     pct_prop = 0
-    p_pos_contemp = 0
+    p_fixa_pos = 0
 
     for m in range(1, prazo_fin + 1):
         if m % 12 == 1 and m > 1:
@@ -198,51 +200,51 @@ def rodar_simulacao():
             cred_n *= f_incc
             s_devedor_c *= f_incc
             dif_red_acum *= f_incc
-            if p_pos_contemp > 0: p_pos_contemp *= f_incc
+            if p_fixa_pos > 0: p_fixa_pos *= f_incc
 
-        im_mercado = v_imovel * (1 + v_mensal)**m
+        imovel_mercado = v_imovel * (1 + v_mensal)**m
         
         if m < mes_contemplacao:
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_at = p_re
             dif_red_acum += (p_ch - p_re)
-            amort_ref = p_ch
-            al_mes = aluguel_c
+            amort_referencia = p_ch
+            aluguel_at = aluguel_c
         elif m == mes_contemplacao:
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_at = p_re
             dif_red_acum += (p_ch - p_re)
-            amort_ref = p_ch
-            al_mes = aluguel_c
+            amort_referencia = p_ch
+            aluguel_at = aluguel_c
             v_em = cred_n * pct_lance_embutido
-            p_compra = (cred_n - v_em) + lance_proprio
-            imovel_c = min(im_mercado, p_compra + reserva)
-            pct_prop = imovel_c / im_mercado
-            reserva = max(0, reserva - max(0, im_mercado - p_compra))
-        else:
-            if p_pos_contemp == 0:
+            poder_compra = (cred_n - v_em) + lance_proprio
+            imovel_c = min(imovel_mercado, poder_compra + reserva)
+            pct_prop = imovel_c / imovel_mercado
+            reserva = max(0, reserva - max(0, imovel_mercado - poder_compra))
+        else: 
+            if p_fixa_pos == 0:
                 v_em = cred_n * pct_lance_embutido
                 s_devedor_c = (s_devedor_c + dif_red_acum) - v_em
-                dif_red_acum = 0
-                restantes = max(1, prazo_cons - (m - 1))
-                p_pos_contemp = s_devedor_c / restantes
-            p_at = p_pos_contemp
-            amort_ref = p_at
-            if m > prazo_cons: p_at = amort_ref = 0
-            al_mes = 0
-            imovel_c = im_mercado * pct_prop
+                dif_red_acum = 0 
+                meses_restantes = max(1, prazo_cons - (m - 1))
+                p_fixa_pos = s_devedor_c / meses_restantes
+            p_at = p_fixa_pos
+            amort_referencia = p_at
+            if m > prazo_cons: p_at = amort_referencia = 0
+            aluguel_at = 0
+            imovel_c = imovel_mercado * pct_prop
 
         reserva *= (1 + s_mensal)
-        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - amort_ref)
-        custo_c += (p_at + al_mes)
-        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_at, "Desembolso": p_at + al_mes, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
+        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - amort_referencia)
+        custo_c += (p_at + aluguel_at)
+        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_at, "Desembolso": p_at + aluguel_at, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
     return pd.DataFrame(data)
 
 df = rodar_simulacao()
 
-# --- EXIBIÇÃO ---
+# --- EXIBIÇÃO NO BROWSER ---
 st.info(f"📋 Simulação: **{nome_cliente}** | Assessor: **{nome_assessor}**")
 res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==prazo_fin)].iloc[0]
 res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==prazo_fin)].iloc[0]
@@ -256,11 +258,10 @@ with c2:
     st.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
     st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
 
-# --- GRÁFICOS (BLINDADOS PARA O PDF) ---
-
+# --- GRÁFICOS (PROTEGIDOS PARA O PDF) ---
 st.divider()
 st.subheader("📊 Evolução do Patrimônio Líquido")
-st.markdown('<div class="print-block">', unsafe_allow_html=True)
+st.markdown('<div class="print-container">', unsafe_allow_html=True)
 fig_pat = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
@@ -269,10 +270,10 @@ fig_pat.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_pat, use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- PARECER TÉCNICO DETALHADO (RESTAURADO INTEGRALMENTE) ---
+# --- PARECER TÉCNICO DETALHADO (RESTAURADO) ---
 st.divider()
 st.subheader("📑 Parecer Técnico: Especialista em Crédito")
-st.markdown('<div class="print-block">', unsafe_allow_html=True)
+st.markdown('<div class="print-container">', unsafe_allow_html=True)
 anos_fin, anos_cons = prazo_fin / 12, prazo_cons / 12
 anos_economizados = (prazo_fin - prazo_cons) / 12
 dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
@@ -283,9 +284,9 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     
     1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida em **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
-    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a **{selic_anual*100:.1f}% a.a.**, protegendo seu caixa pessoal.
-    3. **Poder de Barganha:** Compra à vista com carta contemplada.
-    4. **Eficiência de Taxas:** Sem juros compostos bancários incidindo sobre saldo devedor corrigido pela TR.
+    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a **{selic_anual*100:.1f}% a.a.**, protegendo seu caixa pessoal enquanto aguarda a contemplação.
+    3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista", permitindo descontos que podem anular o custo da taxa de administração.
+    4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente pela TR.
     """)
 else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
@@ -294,24 +295,32 @@ else:
     
     1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você captura 100% da valorização imobiliária desde o mês 1.
     2. **Fim do Aluguel:** A economia imediata do aluguel projetado compensou o custo de juros bancários.
-    3. **Hospedagem Imediata:** Atendimento imediato da necessidade de moradia.
+    3. **Hospedagem Imediata:** Atendimento imediato da necessidade de moradia própria sem depender de sorteios.
     """)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- MEMÓRIA DE CÁLCULO (OCULTA NO PDF E SEM ERRO) ---
 st.markdown('<div class="no-print">', unsafe_allow_html=True)
 st.divider()
-st.subheader("📋 Memória de Cálculo Detalhada (Consulta Online)")
+st.subheader("📋 Memória de Cálculo Detalhada (Apenas Consulta Online)")
 v_tipo = st.radio("Dados:", ["Financiamento", "Consórcio"], horizontal=True)
-df_display = df[df['Tipo']==v_tipo].copy()
+# Formatação apenas para colunas numéricas para evitar o ValueError
 cols_fin = ["Parcela", "Desembolso", "Patrimônio", "Custo Acumulado", "Liquidez"]
-st.dataframe(df_display.style.format({c: "{:.2f}" for c in cols_fin}), use_container_width=True)
+st.dataframe(df[df['Tipo']==v_tipo].style.format({c: "{:.2f}" for c in cols_fin}), use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
+
+# --- DISCLAIMER (RESTAURADO) ---
+st.markdown("""
+    <div class="disclaimer">
+        <b>AVISO LEGAL:</b> Este simulador é uma ferramenta de apoio à decisão baseada em projeções matemáticas e premissas econômicas (INCC, IGP-M, TR e Taxas de Juros). 
+        A contratação de qualquer produto financeiro deve ser precedida de análise cuidadosa dos contratos. Esta simulação não constitui garantia de crédito ou contemplação.
+    </div>
+""", unsafe_allow_html=True)
 
 # --- BOTÃO DE IMPRESSÃO ---
 st.divider()
 if st.button("🖨️ Gerar Relatório PDF"):
-    js_final = f"""
+    js_print = f"""
     <script>
         const originalTitle = window.parent.document.title;
         window.parent.document.title = "Simulação - {nome_cliente}";
@@ -319,7 +328,7 @@ if st.button("🖨️ Gerar Relatório PDF"):
         setTimeout(() => {{ window.parent.document.title = originalTitle; }}, 2000);
     </script>
     """
-    components.html(js_final, height=0)
+    components.html(js_print, height=0)
 
 # --- RODAPÉ FIXO ---
 st.markdown(f"""
