@@ -102,7 +102,7 @@ st.markdown("""
             Financiar ou planejar? Sua decisão não deve ser baseada apenas na parcela, mas no seu <b>Patrimônio Líquido Final</b> e na sua <b>Liquidez</b>.
         </p>
         <p>
-            Comparativo entre financiamento bancário e Consórcio, considerando valorização imobiliária, inflação e custo de oportunidade.
+            Comparativo entre Financiamento Imobiliário e Consórcio, considerando valorização imobiliária, inflação e custo de oportunidade.
         </p>
         <small><i>"Matemática não tem opinião. Ela tem resultados."</i></small>
     </div>
