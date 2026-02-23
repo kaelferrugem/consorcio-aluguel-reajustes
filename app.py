@@ -35,23 +35,26 @@ st.markdown("""
         body { 
             background-color: white !important; 
             color: black !important;
-            margin-bottom: 80px !important; /* Margem de segurança para o rodapé */
+            margin-bottom: 80px !important; 
         }
         
         .stApp { background-color: white !important; }
 
-        /* Remove elementos desnecessários no PDF */
+        /* Esconde elementos indesejados no PDF */
         .no-print, .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr, .stDownloadButton {
             display: none !important;
         }
 
-        /* Controle de Quebra de Página */
-        .chart-container, .parecer-tecnico {
+        .page-break { 
+            page-break-before: always !important; 
+            display: block;
+            height: 0;
+        }
+
+        .chart-container, .parecer-detalhado {
             page-break-inside: avoid !important;
             margin-top: 30px;
         }
-
-        .page-break { page-break-before: always !important; }
 
         .print-only-premissas {
             display: block !important;
@@ -72,7 +75,6 @@ st.markdown("""
             color: black !important;
         }
 
-        /* Inversão para Gráficos no PDF */
         .js-plotly-plot {
             filter: invert(1) brightness(1) contrast(1.2) !important;
         }
@@ -96,7 +98,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- CABEÇALHO ESTRATÉGICO ---
+# --- CABEÇALHO ---
 st.markdown("""
     <div class="main-description">
         <h2 style="margin-top:0;">🏰 Estrategista Imobiliário: O Caminho Mais Curto para o seu Patrimônio</h2>
@@ -110,7 +112,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR: INPUTS ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("👤 Identificação Obrigatória")
     nome_assessor = st.text_input("Nome do Assessor:")
@@ -139,10 +141,10 @@ with st.sidebar:
     igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 8.0) / 100
 
 if not nome_assessor or not nome_cliente:
-    st.warning("⚠️ Identifique Assessor e Cliente para liberar a simulação.")
+    st.warning("⚠️ Identifique Assessor e Cliente na lateral.")
     st.stop()
 
-# --- RELATÓRIO DE PREMISSAS (PDF) ---
+# --- PREMISSAS PDF ---
 st.markdown(f"""
     <div class="print-only-premissas">
         <h3 style="margin-top:0; border-bottom: 2px solid #00ffcc; padding-bottom: 5px;">📋 Memória de Dados: Premissas da Simulação</h3>
@@ -150,7 +152,7 @@ st.markdown(f"""
             <tr style="background-color: #f2f2f2;"><td colspan="4" style="padding: 5px;"><b>📊 Dados de Mercado</b></td></tr>
             <tr>
                 <td style="padding: 5px; border: 1px solid #ddd;">Valor Imóvel:</td><td style="padding: 5px; border: 1px solid #ddd;">R$ {v_imovel:,.2f}</td>
-                <td style="padding: 5px; border: 1px solid #ddd;">Valorização Imob:</td><td style="padding: 5px; border: 1px solid #ddd;">{val_anual*100:.1f}% a.a.</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Valorização:</td><td style="padding: 5px; border: 1px solid #ddd;">{val_anual*100:.1f}% a.a.</td>
             </tr>
             <tr>
                 <td style="padding: 5px; border: 1px solid #ddd;">Rendimento CDI:</td><td style="padding: 5px; border: 1px solid #ddd;">{selic_anual*100:.1f}% a.a.</td>
@@ -181,7 +183,6 @@ def rodar_simulacao():
     s_mensal = (1 + selic_anual)**(1/12) - 1
     data = []
     
-    # 1. FINANCIAMENTO
     s_devedor_f = v_imovel - entrada_fin
     imovel_v_f = v_imovel
     amort_f = s_devedor_f / prazo_fin
@@ -194,7 +195,6 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    # 2. CONSÓRCIO
     cred_n = v_contratacao_cons
     taxa_total_anual = (taxa_adm + fundo_reserva)
     reserva = entrada_fin - lance_proprio
@@ -237,14 +237,13 @@ def rodar_simulacao():
             imovel_c = min(im_mercado, p_compra + reserva)
             pct_prop = imovel_c / im_mercado
             reserva = max(0, reserva - max(0, im_mercado - p_compra))
-        else: # m > mes_contemplacao
+        else:
             if p_pos_contemp == 0:
                 v_em = cred_n * pct_lance_embutido
                 s_devedor_c = (s_devedor_c + dif_red_acum) - v_em
                 dif_red_acum = 0
                 restantes = max(1, prazo_cons - (m - 1))
                 p_pos_contemp = s_devedor_c / restantes
-            
             p_at = p_pos_contemp
             amort_ref = p_at
             if m > prazo_cons: p_at = amort_ref = 0
@@ -259,7 +258,7 @@ def rodar_simulacao():
 
 df = rodar_simulacao()
 
-# --- EXIBIÇÃO NO BROWSER ---
+# --- RESULTADOS ---
 st.info(f"📋 Simulação: **{nome_cliente}** | Assessor: **{nome_assessor}**")
 res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==prazo_fin)].iloc[0]
 res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==prazo_fin)].iloc[0]
@@ -287,29 +286,46 @@ with st.container():
     st.plotly_chart(fig_pat, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Quebra de página estratégica para o PDF
 st.markdown('<div class="page-break"></div>', unsafe_allow_html=True)
 
-# --- PARECER TÉCNICO ---
+# --- PARECER TÉCNICO DETALHADO (RESTAURADO) ---
+st.divider()
 st.subheader("📑 Parecer Técnico: Especialista em Crédito")
-with st.container():
-    st.markdown('<div class="parecer-tecnico">', unsafe_allow_html=True)
-    dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
-    if res_con['Patrimônio'] > res_fin['Patrimônio']:
-        st.success(f"### ✅ Recomendação: Consórcio")
-        st.write(f"A estratégia estruturada de consórcio entrega um patrimônio **R$ {dif_patrimonio:,.2f} maior**.")
-        st.write("1. Ciclo de dívida reduzido | 2. Segurança de liquidez | 3. Poder de barganha à vista.")
-    else:
-        st.info(f"### 🏠 Recomendação: Financiamento")
-        st.write(f"O financiamento bancário resultou em um patrimônio líquido **R$ {dif_patrimonio:,.2f} superior**.")
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('<div class="parecer-detalhado">', unsafe_allow_html=True)
+anos_fin, anos_cons = prazo_fin / 12, prazo_cons / 12
+anos_economizados = (prazo_fin - prazo_cons) / 12
+dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
 
-# --- MEMÓRIA DE CÁLCULO (Oculta no PDF) ---
+if res_con['Patrimônio'] > res_fin['Patrimônio']:
+    st.success(f"### ✅ Recomendação: Planejamento Financeiro Estruturado (Consórcio)")
+    st.write(f"""
+    **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
+    
+    1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida em **{anos_cons:.1f} anos**. Você ganha **{anos_economizados:.1f} anos** de liberdade financeira.
+    2. **Segurança de Liquidez:** Você mantém capital investido rendendo a **{selic_anual*100:.1f}% a.a.**, protegendo seu caixa pessoal enquanto aguarda a contemplação.
+    3. **Poder de Barganha:** Com a carta contemplada, você compra como "pagador à vista", permitindo descontos que podem anular o custo da taxa de administração.
+    4. **Eficiência de Taxas:** Você foge dos juros compostos bancários que incidem sobre um saldo devedor corrigido mensalmente pela TR.
+    """)
+else:
+    st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
+    st.write(f"""
+    **Análise de Viabilidade:** Para este perfil e cenário, o **Financiamento Imobiliário** resultou em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.
+    
+    1. **Captura de Valorização (D0):** Ao assumir o imóvel hoje, você captura 100% da valorização imobiliária desde o mês 1.
+    2. **Fim do Aluguel:** A economia imediata do aluguel projetado compensou o custo de juros bancários.
+    3. **Hospedagem Imediata:** A urgência em morar no imóvel próprio foi atendida sem depender de sorteios ou lances.
+    """)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- MEMÓRIA DE CÁLCULO (AJUSTADA) ---
 st.markdown('<div class="no-print">', unsafe_allow_html=True)
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada (Consulta Online)")
 v_tipo = st.radio("Dados:", ["Financiamento", "Consórcio"], horizontal=True)
-st.dataframe(df[df['Tipo']==v_tipo].style.format("{:.2f}"), use_container_width=True)
+# Formatação apenas para colunas numéricas financeiras para evitar erro de tipo
+df_display = df[df['Tipo']==v_tipo].copy()
+cols_format = ["Parcela", "Desembolso", "Patrimônio", "Custo Acumulado", "Liquidez"]
+st.dataframe(df_display.style.format({c: "{:.2f}" for c in cols_format}), use_container_width=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- BOTÃO DE IMPRESSÃO ---
