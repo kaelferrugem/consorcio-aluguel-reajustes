@@ -6,10 +6,10 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# --- CSS: APP DARK E IMPRESSÃO COM RESUMO DE PREMISSAS ---
+# --- CSS: APP DARK E IMPRESSÃO COM RELATÓRIO TÉCNICO COMPLETO ---
 st.markdown("""
     <style>
-    /* 1. VISUALIZAÇÃO NO NAVEGADOR */
+    /* 1. VISUALIZAÇÃO NO NAVEGADOR (DARK MODE) */
     [data-testid="stMetricValue"] { font-size: 24px; color: #00ffcc; }
     [data-testid="stMetricLabel"] { font-size: 16px; }
     
@@ -28,12 +28,12 @@ st.markdown("""
         text-align: justify;
     }
 
-    /* Oculta a seção de premissas no navegador */
+    /* Oculta as premissas no navegador */
     .print-only-premissas {
         display: none;
     }
 
-    /* 2. 🖨️ LÓGICA DE IMPRESSÃO (PDF) */
+    /* 2. 🖨️ LÓGICA DE IMPRESSÃO (FUNDO BRANCO TOTAL NO PDF) */
     @media print {
         body, .stApp, .main, .main-description, [data-testid="metric-container"], .stMetric {
             background-color: white !important;
@@ -42,11 +42,11 @@ st.markdown("""
         
         .print-only-premissas {
             display: block !important;
-            margin-bottom: 20px;
-            padding: 20px;
+            margin-bottom: 30px;
+            padding: 25px;
             border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 13px;
+            border-radius: 10px;
+            font-size: 12px;
         }
 
         .main-description {
@@ -59,6 +59,7 @@ st.markdown("""
             color: black !important;
         }
 
+        /* Inversão para Planilha e Gráficos no PDF */
         [data-testid="stDataFrame"], [data-testid="stTable"], .js-plotly-plot {
             filter: invert(1) brightness(1) contrast(1.2) !important;
         }
@@ -98,7 +99,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR ---
+# --- SIDEBAR: INPUTS ---
 with st.sidebar:
     st.header("👤 Identificação Obrigatória")
     nome_assessor = st.text_input("Nome do Assessor:")
@@ -121,46 +122,54 @@ with st.sidebar:
     lance_proprio = st.number_input("Lance Próprio (R$)", value=0)
     pct_lance_embutido = st.slider("% Lance Embutido", 0, 30, 25) / 100
     pct_redutor = st.slider("% Redutor de Parcela", 0, 50, 50) / 100
-    mes_contemplacao = st.slider("Mês Contemplação (Estimado)", 1, prazo_cons, 120)
+    mes_contemplacao = st.slider("Mês Contemplação (Estimado)", 1, prazo_cons, 60)
     aluguel_ini = st.number_input("Aluguel Inicial (R$)", value=2500)
     incc_anual = st.slider("INCC Anual (%)", 0.0, 12.0, 6.0) / 100
     igpm_anual = st.slider("IGP-M Anual (%)", 0.0, 15.0, 8.0) / 100
 
 if not nome_assessor or not nome_cliente:
-    st.warning("⚠️ **Acesso Restrito:** Identifique Assessor e Cliente na lateral.")
+    st.warning("⚠️ **Acesso Restrito:** Identifique Assessor e Cliente na lateral para liberar a simulação.")
     st.stop()
 
-# --- RELATÓRIO DE PREMISSAS (PDF) ---
+# --- SEÇÃO DE PREMISSAS COMPLETA (PDF) ---
 st.markdown(f"""
     <div class="print-only-premissas">
-        <h3 style="margin-top:0; color: #333; border-bottom: 2px solid #00ffcc; padding-bottom: 5px;">📋 Detalhamento das Premissas Simuladas</h3>
+        <h3 style="margin-top:0; border-bottom: 2px solid #00ffcc; padding-bottom: 5px;">📋 Detalhamento das Premissas Simuladas</h3>
         <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
+            <tr style="background-color: #f2f2f2;"><td colspan="4" style="padding: 5px;"><b>📊 Dados de Mercado</b></td></tr>
             <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Valor do Imóvel:</b> R$ {v_imovel:,.2f}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Valor do Consórcio:</b> R$ {v_contratacao_cons:,.2f}</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Valor do Imóvel:</td><td style="padding: 5px; border: 1px solid #ddd;">R$ {v_imovel:,.2f}</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Valorização Imob:</td><td style="padding: 5px; border: 1px solid #ddd;">{val_anual*100:.1f}% a.a.</td>
             </tr>
             <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Aluguel Inicial:</b> R$ {aluguel_ini:,.2f}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Valorização Imobiliária:</b> {val_anual*100:.1f}% a.a.</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Rendimento CDI:</td><td style="padding: 5px; border: 1px solid #ddd;">{selic_anual*100:.1f}% a.a.</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Aluguel Inicial:</td><td style="padding: 5px; border: 1px solid #ddd;">R$ {aluguel_ini:,.2f}</td>
             </tr>
             <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Contemplação Estimada:</b> Mês {mes_contemplacao}</td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Rendimento CDI (Liquidez):</b> {selic_anual*100:.1f}% a.a.</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">INCC (Reajuste):</td><td style="padding: 5px; border: 1px solid #ddd;">{incc_anual*100:.1f}% a.a.</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">IGP-M (Aluguel):</td><td style="padding: 5px; border: 1px solid #ddd;">{igpm_anual*100:.1f}% a.a.</td>
+            </tr>
+            <tr style="background-color: #f2f2f2;"><td colspan="4" style="padding: 5px;"><b>📉 Financiamento Bancário (SAC)</b></td></tr>
+            <tr>
+                <td style="padding: 5px; border: 1px solid #ddd;">Entrada Cash:</td><td style="padding: 5px; border: 1px solid #ddd;">R$ {entrada_fin:,.2f}</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Juros Nominais:</td><td style="padding: 5px; border: 1px solid #ddd;">{juros_anual*100:.1f}% a.a.</td>
             </tr>
             <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>INCC (Reajuste Anual):</b> {incc_anual*100:.1f}%</td>
-                <td style="padding: 8px; border-bottom: 1px solid #eee;"><b>IGP-M (Reajuste Aluguel):</b> {igpm_anual*100:.1f}%</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Prazo Total:</td><td style="padding: 5px; border: 1px solid #ddd;">{prazo_fin} Meses</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">TR Mensal:</td><td style="padding: 5px; border: 1px solid #ddd;">{tr_mensal*100:.2f}% a.m.</td>
+            </tr>
+            <tr style="background-color: #f2f2f2;"><td colspan="4" style="padding: 5px;"><b>🤝 Estratégia de Consórcio</b></td></tr>
+            <tr>
+                <td style="padding: 5px; border: 1px solid #ddd;">Valor da Carta:</td><td style="padding: 5px; border: 1px solid #ddd;">R$ {v_contratacao_cons:,.2f}</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Prazo Plano:</td><td style="padding: 5px; border: 1px solid #ddd;">{prazo_cons} Meses</td>
             </tr>
             <tr>
-                <td colspan="2" style="padding: 15px 0 5px 0; border-bottom: 1px solid #eee;"><b>⚙️ Parâmetros Comparativos:</b></td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Taxa Adm + FR:</td><td style="padding: 5px; border: 1px solid #ddd;">{(taxa_adm+fundo_reserva)*100:.1f}%</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Redutor Parcela:</td><td style="padding: 5px; border: 1px solid #ddd;">{pct_redutor*100:.0f}%</td>
             </tr>
             <tr>
-                <td style="padding: 8px;"><b>Financiamento:</b> {prazo_fin} meses | Juros: {juros_anual*100:.1f}% a.a.</td>
-                <td style="padding: 8px;"><b>Consórcio:</b> {prazo_cons} meses | Taxa Total: {taxa_adm*100:.1f}%</td>
-            </tr>
-            <tr>
-                <td style="padding: 8px;"><b>Entrada (Cash):</b> R$ {entrada_fin:,.2f}</td>
-                <td style="padding: 8px;"><b>Lance Embutido:</b> {pct_lance_embutido*100:.0f}% | Redutor: {pct_redutor*100:.0f}%</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Lance Embutido:</td><td style="padding: 5px; border: 1px solid #ddd;">{pct_lance_embutido*100:.0f}%</td>
+                <td style="padding: 5px; border: 1px solid #ddd;">Mês Contemplação:</td><td style="padding: 5px; border: 1px solid #ddd;">Mês {mes_contemplacao}</td>
             </tr>
         </table>
     </div>
@@ -186,7 +195,7 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    # 2. CONSÓRCIO
+    # 2. CONSÓRCIO (LÓGICA TEÓRICA CORRIGIDA)
     cred_n = v_contratacao_cons
     taxa_total_anual = (taxa_adm + fundo_reserva)
     reserva = entrada_fin - lance_proprio
@@ -196,69 +205,65 @@ def rodar_simulacao():
     dif_red_acum = 0
     imovel_c = 0
     p_at = 0
-    pct_propriedade = 0
-    p_fixa_pos = 0
+    pct_prop = 0
+    p_pos_contemp = 0
 
     for m in range(1, prazo_fin + 1):
-        # Reajuste Anual
         if m % 12 == 1 and m > 1:
             aluguel_c *= (1 + igpm_anual)
-            fator_incc = (1 + incc_anual)
-            cred_n *= fator_incc
-            s_devedor_c *= fator_incc
-            dif_red_acum *= fator_incc
-            if p_fixa_pos > 0: p_fixa_pos *= fator_incc
+            f_incc = (1 + incc_anual)
+            cred_n *= f_incc
+            s_devedor_c *= f_incc
+            dif_red_acum *= f_incc
+            if p_pos_contemp > 0: p_pos_contemp *= f_incc
 
-        imovel_mercado = v_imovel * (1 + v_mensal)**m
+        im_mercado = v_imovel * (1 + v_mensal)**m
         
         if m < mes_contemplacao:
-            # Período Reduzido
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_at = p_re
             dif_red_acum += (p_ch - p_re)
-            amort_referencia = p_ch
-            aluguel_at = aluguel_c
+            amort_ref = p_ch
+            al_mes = aluguel_c
         elif m == mes_contemplacao:
-            # Mês da contemplação: A parcela AINDA é a reduzida
+            # Mês 60: Ainda paga reduzida
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_at = p_re
             dif_red_acum += (p_ch - p_re)
-            amort_referencia = p_ch
-            aluguel_at = aluguel_c
-            
-            # Prepara o imóvel para o cálculo de patrimônio (mora a partir do 61)
+            amort_ref = p_ch
+            al_mes = aluguel_c
+            # Prepara imóvel para o mês 61
             v_em = cred_n * pct_lance_embutido
-            poder_compra = (cred_n - v_em) + lance_proprio
-            imovel_c = min(imovel_mercado, poder_compra + reserva)
-            pct_propriedade = imovel_c / imovel_mercado
-            reserva = max(0, reserva - max(0, imovel_mercado - poder_compra))
+            p_compra = (cred_n - v_em) + lance_proprio
+            imovel_c = min(im_mercado, p_compra + reserva)
+            pct_prop = imovel_c / im_mercado
+            reserva = max(0, reserva - max(0, im_mercado - p_compra))
         else: # m > mes_contemplacao
-            if p_fixa_pos == 0:
-                # Ajuste de Saldo no primeiro mês após a contemplação (Mês 61)
+            if p_pos_contemp == 0:
                 v_em = cred_n * pct_lance_embutido
                 s_devedor_c = (s_devedor_c + dif_red_acum) - v_em
-                dif_red_acum = 0 
-                meses_restantes = max(1, prazo_cons - (m - 1))
-                p_fixa_pos = s_devedor_c / meses_restantes
+                dif_red_acum = 0
+                restantes = max(1, prazo_cons - (m - 1))
+                p_pos_contemp = s_devedor_c / restantes
             
-            p_at = p_fixa_pos
-            amort_referencia = p_at
-            if m > prazo_cons: p_at = amort_referencia = 0
-            aluguel_at = 0
-            imovel_c = imovel_mercado * pct_propriedade
+            p_at = p_pos_contemp
+            amort_ref = p_at
+            if m > prazo_cons: p_at = amort_ref = 0
+            al_mes = 0
+            imovel_c = im_mercado * pct_prop
 
         reserva *= (1 + s_mensal)
-        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - amort_referencia)
-        custo_c += (p_at + aluguel_at)
-        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_at, "Desembolso": p_at + aluguel_at, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
+        if m <= prazo_cons: s_devedor_c = max(0, s_devedor_c - amort_ref)
+        custo_c += (p_at + al_mes)
+        data.append({"Mês": m, "Tipo": "Consórcio", "Parcela": p_at, "Desembolso": p_at + al_mes, "Patrimônio": imovel_c - s_devedor_c + reserva, "Custo Acumulado": custo_c, "Liquidez": reserva})
     return pd.DataFrame(data)
 
 df = rodar_simulacao()
 
 # --- EXIBIÇÃO ---
-st.info(f"📋 **Simulação preparada para:** {nome_cliente} | **Responsável:** {nome_assessor}")
+st.info(f"📋 Simulação preparada para: **{nome_cliente}** | Assessor responsável: **{nome_assessor}**")
 res_fin = df[(df['Tipo']=="Financiamento") & (df['Mês']==prazo_fin)].iloc[0]
 res_con = df[(df['Tipo']=="Consórcio") & (df['Mês']==prazo_fin)].iloc[0]
 
@@ -274,6 +279,7 @@ with c2:
 # --- GRÁFICOS ---
 st.divider()
 st.subheader("📊 Evolução do Patrimônio Líquido")
+
 fig_pat = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
@@ -293,8 +299,8 @@ st.plotly_chart(fig_liq, use_container_width=True)
 # --- PLANILHA ---
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
-tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
-st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
+v_tipo = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
+st.dataframe(df[df['Tipo']==v_tipo].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
 
 # --- PARECER TÉCNICO ---
 st.divider()
@@ -306,7 +312,7 @@ dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
 if res_con['Patrimônio'] > res_fin['Patrimônio']:
     st.success(f"### ✅ Recomendação: Planejamento Financeiro Estruturado (Consórcio)")
     st.write(f"""
-    **Análise de Viabilidade:** A estratégia de **Consórcio com Parcela Reduzida** se provou superior neste cenário, entregando um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
+    **Análise de Viabilidade:** O consórcio entrega um patrimônio **R$ {dif_patrimonio:,.2f} maior**.
     
     1. **Ciclo de Dívida Curto:** Enquanto o financiamento prenderia seu capital por **{anos_fin:.0f} anos**, o consórcio liquida em **{anos_cons:.1f} anos**.
     2. **Segurança de Liquidez:** Você mantém capital investido rendendo a **{selic_anual*100:.1f}% a.a.**
@@ -315,7 +321,7 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
     """)
 else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
-    st.write(f"**Análise de Viabilidade:** Para este perfil e cenário, o **Financiamento Imobiliário** resultou em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.")
+    st.write(f"**Análise de Viabilidade:** O Financiamento resultou em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.")
 
 # --- DISCLAIMER ---
 st.markdown("""
