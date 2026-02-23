@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# --- CSS: APP DARK E IMPRESSÃO EXECUTIVA ---
+# --- CSS: APP DARK E IMPRESSÃO EXECUTIVA (REFORMULADO) ---
 st.markdown("""
     <style>
     /* 1. VISUALIZAÇÃO NO NAVEGADOR */
@@ -35,27 +35,26 @@ st.markdown("""
         body { 
             background-color: white !important; 
             color: black !important;
-            /* Ajuste para não sobrepor o rodapé */
-            margin-bottom: 100px !important; 
+            /* Margem de segurança para não sobrepor o rodapé */
+            margin-bottom: 80px !important; 
         }
         
         .stApp { background-color: white !important; }
 
-        /* REMOVE A MEMÓRIA DE CÁLCULO E BOTÕES NO PDF */
+        /* REMOVE ELEMENTOS QUE NÃO DEVEM SAIR NO PDF */
         .no-print, .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr, .stDownloadButton {
             display: none !important;
         }
 
-        /* EVITA QUE GRÁFICOS E PARECERES SEJAM DIVIDIDOS */
+        /* EVITA QUE GRÁFICOS E PARECERES SEJAM CORTADOS AO MEIO */
         .chart-container, .parecer-box {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            display: block;
             margin-top: 30px;
         }
 
-        /* Força quebra de página se necessário */
-        .page-break { page-break-before: always !important; }
-
+        /* Detalha premissas no topo do PDF */
         .print-only-premissas {
             display: block !important;
             margin-bottom: 30px;
@@ -79,6 +78,7 @@ st.markdown("""
             filter: invert(1) brightness(1) contrast(1.2) !important;
         }
 
+        /* Rodapé fixo no papel */
         .print-footer {
             display: block !important;
             position: fixed;
@@ -87,7 +87,7 @@ st.markdown("""
             text-align: center;
             font-size: 10px;
             border-top: 0.5px solid #eee;
-            padding: 15px 0;
+            padding: 10px 0;
             color: #555 !important;
             background-color: white !important;
         }
@@ -179,14 +179,13 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# --- MOTOR DE CÁLCULO ---
+# --- MOTOR DE CÁLCULO (MANTIDO CONFORME SUA ÚLTIMA VERSÃO) ---
 def rodar_simulacao():
     j_mensal = (1 + juros_anual)**(1/12) - 1
     v_mensal = (1 + val_anual)**(1/12) - 1
     s_mensal = (1 + selic_anual)**(1/12) - 1
     data = []
     
-    # 1. FINANCIAMENTO
     s_devedor_f = v_imovel - entrada_fin
     imovel_v_f = v_imovel
     amort_f = s_devedor_f / prazo_fin
@@ -199,7 +198,6 @@ def rodar_simulacao():
         custo_f += parcela
         data.append({"Mês": m, "Tipo": "Financiamento", "Parcela": parcela, "Desembolso": parcela, "Patrimônio": imovel_v_f - s_devedor_f, "Custo Acumulado": custo_f, "Liquidez": 0})
 
-    # 2. CONSÓRCIO
     cred_n = v_contratacao_cons
     taxa_total_anual = (taxa_adm + fundo_reserva)
     reserva = entrada_fin - lance_proprio
@@ -213,7 +211,6 @@ def rodar_simulacao():
     p_fixa_pos = 0
 
     for m in range(1, prazo_fin + 1):
-        # Reajuste Anual
         if m % 12 == 1 and m > 1:
             aluguel_c *= (1 + igpm_anual)
             fator_incc = (1 + incc_anual)
@@ -225,7 +222,6 @@ def rodar_simulacao():
         imovel_mercado = v_imovel * (1 + v_mensal)**m
         
         if m < mes_contemplacao:
-            # Período Reduzido
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_at = p_re
@@ -233,29 +229,24 @@ def rodar_simulacao():
             amort_referencia = p_ch
             aluguel_at = aluguel_c
         elif m == mes_contemplacao:
-            # Mês da contemplação: A parcela AINDA é a reduzida
             p_ch = (cred_n * (1 + taxa_total_anual)) / prazo_cons
             p_re = ((cred_n * (1 + fundo_reserva)) * (1 - pct_redutor) + (cred_n * taxa_adm)) / prazo_cons
             p_at = p_re
             dif_red_acum += (p_ch - p_re)
             amort_referencia = p_ch
             aluguel_at = aluguel_c
-            
-            # Prepara o imóvel para o cálculo de patrimônio (mora a partir do 61)
             v_em = cred_n * pct_lance_embutido
             poder_compra = (cred_n - v_em) + lance_proprio
             imovel_c = min(imovel_mercado, poder_compra + reserva)
             pct_propriedade = imovel_c / imovel_mercado
             reserva = max(0, reserva - max(0, imovel_mercado - poder_compra))
-        else: # m > mes_contemplacao
+        else: 
             if p_fixa_pos == 0:
-                # Ajuste de Saldo no primeiro mês após a contemplação (Mês 61)
                 v_em = cred_n * pct_lance_embutido
                 s_devedor_c = (s_devedor_c + dif_red_acum) - v_em
                 dif_red_acum = 0 
                 meses_restantes = max(1, prazo_cons - (m - 1))
                 p_fixa_pos = s_devedor_c / meses_restantes
-            
             p_at = p_fixa_pos
             amort_referencia = p_at
             if m > prazo_cons: p_at = amort_referencia = 0
@@ -284,34 +275,42 @@ with c2:
     st.metric("Patrimônio Consórcio", f"R$ {res_con['Patrimônio']:,.2f}")
     st.metric("Custo Total Consórcio + Aluguel", f"R$ {res_con['Custo Acumulado']:,.2f}")
 
-# --- GRÁFICOS ---
+# --- GRÁFICOS (ENVELOPADOS PARA IMPRESSÃO) ---
+
 st.divider()
 st.subheader("📊 Evolução do Patrimônio Líquido")
+st.markdown('<div class="chart-container">', unsafe_allow_html=True)
 fig_pat = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
     fig_pat.add_trace(go.Scatter(x=sub['Mês'], y=sub['Patrimônio'], name=t))
 fig_pat.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_pat, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 st.subheader("💰 Evolução da Liquidez (Capital em Conta)")
+st.markdown('<div class="chart-container">', unsafe_allow_html=True)
 fig_liq = go.Figure()
 for t in ["Financiamento", "Consórcio"]:
     sub = df[df['Tipo']==t]
     fig_liq.add_trace(go.Scatter(x=sub['Mês'], y=sub['Liquidez'], name=f"Reserva {t}", fill='tozeroy'))
 fig_liq.update_layout(template="plotly_dark", hovermode="x unified")
 st.plotly_chart(fig_liq, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-# --- PLANILHA ---
+# --- PLANILHA (ENVELOPADA COM CLASSE NO-PRINT) ---
+st.markdown('<div class="no-print">', unsafe_allow_html=True)
 st.divider()
 st.subheader("📋 Memória de Cálculo Detalhada")
 tipo_view = st.radio("Visualizar dados de:", ["Financiamento", "Consórcio"], horizontal=True)
 st.dataframe(df[df['Tipo']==tipo_view].style.format({"Parcela": "{:.2f}", "Desembolso": "{:.2f}", "Patrimônio": "{:.2f}", "Custo Acumulado": "{:.2f}", "Liquidez": "{:.2f}"}), use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
-# --- PARECER TÉCNICO ---
+# --- PARECER TÉCNICO (ENVELOPADO PARA IMPRESSÃO) ---
 st.divider()
 st.subheader("📑 Parecer Técnico: Especialista em Crédito")
+st.markdown('<div class="parecer-box">', unsafe_allow_html=True)
 anos_fin, anos_cons = prazo_fin / 12, prazo_cons / 12
 anos_economizados = (prazo_fin - prazo_cons) / 12
 dif_patrimonio = abs(res_con['Patrimônio'] - res_fin['Patrimônio'])
@@ -329,6 +328,7 @@ if res_con['Patrimônio'] > res_fin['Patrimônio']:
 else:
     st.info(f"### 🏠 Recomendação: Alavancagem Imediata (Financiamento)")
     st.write(f"**Análise de Viabilidade:** Para este perfil e cenário, o **Financiamento Imobiliário** resultou em um patrimônio **R$ {dif_patrimonio:,.2f} superior**.")
+st.markdown('</div>', unsafe_allow_html=True)
 
 # --- DISCLAIMER ---
 st.markdown("""
@@ -340,7 +340,16 @@ st.markdown("""
 
 st.divider()
 if st.button("🖨️ Gerar Resumo para Impressão"):
-    components.html("""<script>window.parent.print();</script>""", height=0)
+    # Snippet JavaScript para nomear o arquivo e imprimir
+    js_print = f"""
+    <script>
+        const originalTitle = window.parent.document.title;
+        window.parent.document.title = "Simulação - {nome_cliente}";
+        window.parent.print();
+        setTimeout(() => {{ window.parent.document.title = originalTitle; }}, 2000);
+    </script>
+    """
+    components.html(js_print, height=0)
 
 # --- RODAPÉ DE IMPRESSÃO ---
 st.markdown(f"""
