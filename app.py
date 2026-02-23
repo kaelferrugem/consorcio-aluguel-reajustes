@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Estrategista Imobiliário Pro", layout="wide")
 
-# --- CSS: APP DARK E IMPRESSÃO COM RESUMO DE PREMISSAS ---
+# --- CSS: APP DARK E IMPRESSÃO EXECUTIVA ---
 st.markdown("""
     <style>
     /* 1. VISUALIZAÇÃO NO NAVEGADOR */
@@ -28,21 +28,37 @@ st.markdown("""
         text-align: justify;
     }
 
-    /* Oculta a seção de premissas no navegador */
-    .print-only-premissas {
-        display: none;
-    }
+    .print-only-premissas { display: none; }
 
     /* 2. 🖨️ LÓGICA DE IMPRESSÃO (PDF) */
     @media print {
-        body, .stApp, .main, .main-description, [data-testid="metric-container"], .stMetric {
-            background-color: white !important;
+        body { 
+            background-color: white !important; 
             color: black !important;
+            /* Ajuste para não sobrepor o rodapé */
+            margin-bottom: 100px !important; 
         }
         
+        .stApp { background-color: white !important; }
+
+        /* REMOVE A MEMÓRIA DE CÁLCULO E BOTÕES NO PDF */
+        .no-print, .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr, .stDownloadButton {
+            display: none !important;
+        }
+
+        /* EVITA QUE GRÁFICOS E PARECERES SEJAM DIVIDIDOS */
+        .chart-container, .parecer-box {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin-top: 30px;
+        }
+
+        /* Força quebra de página se necessário */
+        .page-break { page-break-before: always !important; }
+
         .print-only-premissas {
             display: block !important;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             padding: 20px;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -59,12 +75,8 @@ st.markdown("""
             color: black !important;
         }
 
-        [data-testid="stDataFrame"], [data-testid="stTable"], .js-plotly-plot {
+        .js-plotly-plot {
             filter: invert(1) brightness(1) contrast(1.2) !important;
-        }
-
-        .stButton, .sidebar, [data-testid="stSidebar"], .stRadio, footer, hr, .stDownloadButton {
-            display: none !important;
         }
 
         .print-footer {
@@ -75,8 +87,9 @@ st.markdown("""
             text-align: center;
             font-size: 10px;
             border-top: 0.5px solid #eee;
-            padding-top: 5px;
+            padding: 15px 0;
             color: #555 !important;
+            background-color: white !important;
         }
     }
     
